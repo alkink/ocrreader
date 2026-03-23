@@ -12,14 +12,14 @@ Kullanım:
   # Otomatik — mevcut probe CSV'lerden:
   python scripts/collect_anchor_templates.py \
       --mode auto \
-      --probe-dir dataset/generated/qa \
-      --image-dir dataset/photo \
+      --probe-dir output \
+      --image-dir testdata \
       --out-dir config/anchor_templates
 
   # Manuel — tek görüntü:
   python scripts/collect_anchor_templates.py \
       --mode manual \
-      --image dataset/photo/06CFZ624.png \
+      --image "testdata/WhatsApp Image 2026-03-03 at 18.31.01.jpeg" \
       --out-dir config/anchor_templates
 """
 from __future__ import annotations
@@ -195,8 +195,8 @@ def run_manual(image_path: Path, out_dir: Path) -> None:
 def run() -> int:
     parser = argparse.ArgumentParser()
     parser.add_argument("--mode", choices=["auto", "manual"], default="auto")
-    parser.add_argument("--probe-dir", default="dataset/generated/qa")
-    parser.add_argument("--image-dir", default="dataset/photo")
+    parser.add_argument("--probe-dir", default="output")
+    parser.add_argument("--image-dir", default="testdata")
     parser.add_argument("--image", default="", help="Single image (manual mode)")
     parser.add_argument("--out-dir", default="config/anchor_templates")
     parser.add_argument("--min-conf", type=float, default=55.0)

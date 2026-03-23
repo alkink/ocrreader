@@ -87,18 +87,8 @@ class FieldConfig:
     prefer_mixed_alnum: bool = False
     strip_prefixes: tuple[str, ...] = ()
     confidence_threshold: int = 0
-    benchmark_exclude: bool = False
     psm: int | None = None
     whitelist: str | None = None
-
-
-@dataclass(frozen=True)
-class BenchmarkConfig:
-    reviewed_only: bool = False
-    allowed_review_statuses: tuple[str, ...] = ()
-    respect_benchmark_exclude: bool = True
-    confidence_sweep: str = "0,8,12,16,20,24,28,32"
-    min_gt_fields: int = 0
 
 
 def _str_tuple(value: object, name: str) -> tuple[str, ...]:
@@ -115,7 +105,6 @@ class RuhsatConfig:
     ocr: OCRConfig
     anchors: dict[str, AnchorConfig]
     fields: dict[str, FieldConfig]
-    benchmark: BenchmarkConfig = BenchmarkConfig()
 
 
 def _tuple4(value: object, name: str) -> tuple[float, float, float, float] | None:
@@ -195,18 +184,6 @@ def load_config(path: str) -> RuhsatConfig:
         glm_api_mode=(str(ocr_raw.get("glm_api_mode")).strip().lower() if ocr_raw.get("glm_api_mode") is not None else None),
     )
 
-    benchmark_raw = raw.get("benchmark", {})
-    benchmark = BenchmarkConfig(
-        reviewed_only=bool(benchmark_raw.get("reviewed_only", False)),
-        allowed_review_statuses=_str_tuple(
-            benchmark_raw.get("allowed_review_statuses"),
-            "benchmark.allowed_review_statuses",
-        ),
-        respect_benchmark_exclude=bool(benchmark_raw.get("respect_benchmark_exclude", True)),
-        confidence_sweep=str(benchmark_raw.get("confidence_sweep", "0,8,12,16,20,24,28,32")),
-        min_gt_fields=int(benchmark_raw.get("min_gt_fields", 0)),
-    )
-
     anchors_raw = raw.get("anchors", {})
     anchors: dict[str, AnchorConfig] = {}
     for name, item in anchors_raw.items():
@@ -235,7 +212,6 @@ def load_config(path: str) -> RuhsatConfig:
             prefer_mixed_alnum=bool(item.get("prefer_mixed_alnum", False)),
             strip_prefixes=_str_tuple(item.get("strip_prefixes"), f"fields.{name}.strip_prefixes"),
             confidence_threshold=int(item.get("confidence_threshold", 0)),
-            benchmark_exclude=bool(item.get("benchmark_exclude", False)),
             psm=int(item["psm"]) if item.get("psm") is not None else None,
             whitelist=item.get("whitelist"),
         )
@@ -245,6 +221,5 @@ def load_config(path: str) -> RuhsatConfig:
         ocr=ocr,
         anchors=anchors,
         fields=fields,
-        benchmark=benchmark,
     )
 

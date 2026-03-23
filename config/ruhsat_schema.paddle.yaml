@@ -8,14 +8,6 @@ pipeline:
   deskew:
     enabled: true
     max_correction_deg: 8.0
-benchmark:
-  reviewed_only: true
-  allowed_review_statuses:
-  - ok
-  - fixed
-  respect_benchmark_exclude: true
-  confidence_sweep: 0,8,12,16,20,24,28,32
-  min_gt_fields: 4
 ocr:
   executable: C:/Program Files/Tesseract-OCR/tesseract.exe
   language: tur+eng
@@ -352,7 +344,6 @@ fields:
     - TICARI UNVANI
     - UNVANI
     psm: 7
-    benchmark_exclude: true
   owner_name:
     anchor: name_label
     offset_from_anchor_norm:
@@ -379,7 +370,6 @@ fields:
     - ADI
     psm: 7
     confidence_threshold: 8
-    benchmark_exclude: true
   first_registration_date:
     anchor: first_registration_label
     offset_from_anchor_norm:

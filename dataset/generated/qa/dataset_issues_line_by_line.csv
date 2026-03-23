@@ -1,7 +1,0 @@
-line_no,image,field,value,reason
-7,dataset/photo/Ekran görüntüsü 2026-03-04 112444.png,brand,MAKE,label_text_as_value
-7,dataset/photo/Ekran görüntüsü 2026-03-04 112444.png,vehicle_type,TYPE,label_text_as_value
-46,dataset/photo/Ekran görüntüsü 2026-03-04 115148.png,plate,06MZYS1,invalid_plate_pattern
-51,dataset/photo/Ekran görüntüsü 2026-03-04 115525.png,owner_surname,<BR/>TICARI UNIVASI YERI SORU<BR/>SIPTA OFIS KIRTASIYEVE PROMOSYON<BR/>UR.IM.SAN.A.S.,contains_html
-58,dataset/photo/Gemini_Generated_Image_xopl7ixopl7ixopl.png,inspection_date,10/10/325,bad_date_format
-63,dataset/photo/ruhsat-seri-no-1-640x453.jpg,plate,48VJ10S,invalid_plate_pattern

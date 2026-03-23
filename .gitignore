@@ -18,28 +18,8 @@ tests/*.log
 tests/batch_user_image_results/
 tests/profile_paddle_vl_roi_outputs/
 
-# Generated QA / benchmark artifacts
-dataset/generated/qa/bench*/
-dataset/generated/qa/benchmark*/
-dataset/generated/qa/orientation_audit*/
-dataset/generated/qa/anchor_label_probe.csv
-dataset/generated/qa/conflict_report.csv
-dataset/generated/qa/issues.csv
-dataset/generated/qa/coverage.csv
-dataset/generated/qa/summary.json
-dataset/generated/qa/glm_analysis.txt
-
-# Generated dataset exports and local downloads
-dataset/generated/raw/
-dataset/generated/markdown/
-dataset/generated/manifest.jsonl
-dataset/generated/splits/
-dataset/generated/*.jsonl
-dataset/conflict_report.csv
-dataset/*.zip
-dataset/*.jpeg/
-dataset/*.jpg/
-dataset/*.png/
+# Local dataset workspace
+dataset/
 
 # Local task/session dumps
 roo_task_*.md

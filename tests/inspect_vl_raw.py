@@ -1,9 +1,12 @@
+from pathlib import Path
+import json
+import cv2
+
 from ocrreader.config import OCRConfig
 from ocrreader.ocr_engine import create_glm_fallback_engine
-import numpy as np
-import cv2
-import os
-import json
+
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+SAMPLE_IMAGE = PROJECT_ROOT / "testdata" / "WhatsApp_Image_2026-03-03_at_18.31.01.jpeg"
 
 def json_serializable(obj):
     if hasattr(obj, 'to_dict'):
@@ -20,15 +23,14 @@ def main():
     print("Initializing integrated PaddleOCRVLEngine...")
     engine = create_glm_fallback_engine(config)
     
-    img_path = r'dataset/generated/qa/benchmark/benchmark_images/132020380_1753782264797081_6362873494041143451_n.jpg'
-    img = cv2.imread(img_path)
+    img = cv2.imread(str(SAMPLE_IMAGE))
     
     # Access the private _vl to call predict directly and see raw output
     print("Running raw VL predict...")
     raw_res = engine._vl.predict(img)
     
     # Save the raw result structure for inspection
-    with open('tests/vl_raw_res.json', 'w', encoding='utf-8') as f:
+    with open(PROJECT_ROOT / 'tests' / 'vl_raw_res.json', 'w', encoding='utf-8') as f:
         # Convert paddlex result objects to dicts if possible
         serializable_res = []
         for r in raw_res:

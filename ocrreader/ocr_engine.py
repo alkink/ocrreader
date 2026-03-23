@@ -17,7 +17,7 @@ from pytesseract import Output
 from .text_utils import collapse_spaces, normalize_turkish_ascii
 
 # PaddleOCR 3.x may perform connectivity checks to model hosters on init.
-# Keep this disabled by default for deterministic CLI/benchmark behavior.
+# Keep this disabled by default for deterministic CLI behavior.
 os.environ.setdefault("PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK", "True")
 
 

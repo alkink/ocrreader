@@ -22,7 +22,7 @@ def run() -> int:
     parser.add_argument("--config", default="config/ruhsat_schema.yaml", help="YAML config")
     parser.add_argument(
         "--out-csv",
-        default="dataset/generated/qa/anchor_label_probe.csv",
+        default="output/anchor_label_probe.csv",
         help="Output CSV with alias hit candidates",
     )
     parser.add_argument(

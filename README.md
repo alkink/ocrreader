@@ -1,49 +1,32 @@
-# OCR Reader - Ruhsat Extraction (Modular)
+# OCR Reader - Ruhsat Extraction
 
-This project implements a **modular OCR pipeline** for Turkish vehicle registration documents (ruhsat).
+This repository is focused on OCR extraction for Turkish vehicle registration documents.
+
+The old dataset generation, annotation, training, and benchmark pipeline has been removed. The repo now keeps only the runtime OCR pipeline and a small set of local helper scripts.
 
 ## Why fixed ROI fails
 
-Even if the document border is perfectly aligned, printed values can still shift because of printer drift.
-So, hardcoded crop boxes alone are fragile.
+Even if the document border is aligned correctly, printer drift can move the printed values inside the card. Because of that, fixed crop coordinates alone are not reliable.
 
-## Proposed architecture
+The current pipeline uses:
 
-1. **Document preprocessing**
-   - Detect full document quadrilateral
-   - Perspective normalize (warp)
-   - Optional deskew
-
-2. **Anchor detection**
-   - Run OCR once on whole normalized document
-   - Detect static labels (anchors) such as `PLAKA`, `MARKASI`, `MOTOR NO`
-
-3. **Dynamic field ROI mapping**
-   - Compute field regions from anchor positions
-   - Use fallback normalized ROIs if an anchor is missing
-
-4. **Field OCR + cleanup**
-   - OCR each field ROI with field-specific PSM
-   - Postprocess text (`digits`, `alnum_upper`, etc.)
-
-5. **JSON output + debug artifacts**
-   - Final extracted data in JSON
-   - Optional debug images with anchor/ROI overlays
-
----
+1. document normalization,
+2. anchor detection,
+3. dynamic ROI resolution,
+4. field-level OCR,
+5. text cleanup and JSON output.
 
 ## Project structure
 
-- `ocrreader/config.py` - schema/config loader
-- `ocrreader/preprocess.py` - document detection + perspective + deskew
-- `ocrreader/ocr_engine.py` - Tesseract OCR wrapper
-- `ocrreader/anchors.py` - anchor matching logic
-- `ocrreader/fields.py` - ROI resolution + field extraction
-- `ocrreader/pipeline.py` - end-to-end pipeline orchestration
+- `ocrreader/config.py` - typed config loader
+- `ocrreader/preprocess.py` - document detection, warp, deskew
+- `ocrreader/ocr_engine.py` - OCR backends and optional GLM/VL fallback
+- `ocrreader/anchors.py` - anchor matching
+- `ocrreader/fields.py` - ROI resolution and field extraction
+- `ocrreader/pipeline.py` - end-to-end OCR pipeline
 - `ocrreader/cli.py` - command-line entrypoint
-- `config/ruhsat_schema.yaml` - editable extraction schema
-
----
+- `config/` - extraction schemas
+- `testdata/` - local sample images for runtime checks
 
 ## Installation
 
@@ -53,164 +36,81 @@ python -m venv .venv
 pip install -r requirements.txt
 ```
 
-For Windows + GPU + `PaddleOCR-VL` setup, see `INSTALL_WINDOWS_GPU.md`.
+For Windows + GPU + `PaddleOCR-VL` setup, use `INSTALL_WINDOWS_GPU.md`.
 
-Install Tesseract OCR separately and ensure it is in PATH.
+Tesseract must still be installed separately if your config uses it for crop-level OCR.
 
-If not in PATH, set in YAML: `ocr.executable: "C:/Program Files/Tesseract-OCR/tesseract.exe"`.
+If Tesseract is not in `PATH`, set:
 
----
+```yaml
+ocr:
+  executable: C:/Program Files/Tesseract-OCR/tesseract.exe
+```
 
 ## Usage
+
+### Fast runtime - `HybridOCREngine`
+
+Uses `PaddleOCR` for full-page word detection and `Tesseract` for per-field crop OCR.
+
+```bash
+python -m ocrreader.cli \
+  --image "testdata/WhatsApp Image 2026-03-03 at 18.31.01.jpeg" \
+  --config "config/ruhsat_schema_paddle_v29.yaml" \
+  --output "output/result_fast.json" \
+  --debug-dir "output/debug_fast"
+```
+
+### Slow runtime - `PaddleOCR-VL`
+
+Uses the experimental `PaddleOCR-VL` fallback path. This is the slower full-page VL route.
+
+```bash
+python -m ocrreader.cli \
+  --image "testdata/WhatsApp Image 2026-03-03 at 18.31.01.jpeg" \
+  --config "config/ruhsat_schema_paddle_v29_allfields_glm.yaml" \
+  --output "output/result_vl.json" \
+  --debug-dir "output/debug_vl"
+```
+
+### Basic runtime - `Tesseract`
+
+Uses the plain `Tesseract` pipeline without `PaddleOCR`.
 
 ```bash
 python -m ocrreader.cli \
   --image "testdata/WhatsApp Image 2026-03-03 at 18.31.01.jpeg" \
   --config "config/ruhsat_schema.yaml" \
-  --output "output/result.json" \
-  --debug-dir "output/debug"
+  --output "output/result_tesseract.json" \
+  --debug-dir "output/debug_tesseract"
 ```
 
-### Conda quick start (Windows)
+### Runtime notes
 
-```bash
-conda create -n ocrreader python=3.11 -y
-conda run -n ocrreader python -m pip install -r requirements.txt
-conda install -n ocrreader -c conda-forge tesseract -y
-conda run -n ocrreader python -m ocrreader.cli \
-  --image "testdata/WhatsApp Image 2026-03-03 at 18.31.01.jpeg" \
-  --config "config/ruhsat_schema.yaml" \
-  --output "output/result.json" \
-  --debug-dir "output/debug"
-```
+- `config/ruhsat_schema_paddle_v29.yaml` selects the faster hybrid path.
+- `config/ruhsat_schema_paddle_v29_allfields_glm.yaml` selects the slower `PaddleOCR-VL` path.
+- `config/ruhsat_schema.yaml` is the simplest fallback path.
+- `PaddleOCR`-based commands require the matching `paddleocr` and `paddlepaddle` packages to be installed in the active environment.
 
-### Current extraction status on sample
+## Useful helper scripts
 
-With the current schema and code, the sample now extracts reliably for:
-- plate
-- brand
-- model_year
-- engine_no
-- chassis_no
-- tax_or_id_no
+- `scripts/anchor_label_probe.py` - inspect anchor hits on one image
+- `scripts/collect_anchor_templates.py` - build anchor templates from local probe outputs
+- `scripts/debug_call_trace.py` - trace the runtime OCR flow on one image
+- `scripts/export_results_columns.py` - flatten OCR JSON files into CSV
+- `tests/batch_verify_user_images.py` - run the VL helper on all local `testdata/` images
+- `tests/profile_paddle_vl.py` - time PaddleOCR-VL on one image
+- `tests/profile_paddle_vl_roi.py` - time PaddleOCR-VL on selected ROI crops
 
-Still weak/noisy for this sample image quality:
-- type
-- owner_surname
-- owner_name
+## Tuning checklist
 
-Those 3 fields are mostly OCR quality limits on this specific image crop/noise, not document-alignment failure.
-
-### Practical tuning checklist
-
-1. For each weak field in [`config/ruhsat_schema.yaml`](config/ruhsat_schema.yaml), try:
-   - `value_margin_norm` narrowing/widening by ±0.01..0.03
-   - switch `value_from_anchor` between `right` / `below`
-   - adjust `force_method` among `anchor_*`, `roi_tesseract_raw`, `roi_tesseract_preprocessed`
-2. For alphanumeric fields that include hyphen, use `cleanup: alnum_hyphen_upper`.
-3. If OCR still misses, increase normalized output in pipeline (`output_width`/`output_height`) and retest.
-4. For production-level robustness, add text detection (CRAFT/DBNet) before recognition and then key-value pairing.
-
----
+1. Adjust `value_margin_norm` for weak fields.
+2. Switch `value_from_anchor` between `right` and `below` where needed.
+3. Use `force_method` only when the default field selection is unstable.
+4. Increase normalized output size if field crops are still too small.
 
 ## Notes
 
-- The schema is intentionally configurable so you can tune anchors/offsets without changing code.
-- Start with current offsets, then calibrate per card layout and camera distance.
-- If you later want stronger robustness, add text detection (CRAFT/DBNet) before recognition.
-
----
-
-## Dataset generation with Mistral OCR
-
-### 1) Generate OCR outputs from images
-
-Input folder expected: [`dataset/photo`](dataset/photo)
-
-Run:
-
-```bash
-python -m pip install mistralai
-python scripts/generate_mistral_ocr_dataset.py \
-  --photo-dir dataset/photo \
-  --out-dir dataset/generated \
-  --resume
-```
-
-Required env var:
-
-```bash
-MISTRAL_API_KEY=...
-```
-
-Outputs:
-- Raw API JSON files: [`dataset/generated/raw`](dataset/generated/raw)
-- Markdown OCR files: [`dataset/generated/markdown`](dataset/generated/markdown)
-- Manifest: [`dataset/generated/manifest.jsonl`](dataset/generated/manifest.jsonl)
-
-### 2) Check dataset consistency
-
-```bash
-python scripts/check_generated_dataset.py --generated-dir dataset/generated
-```
-
-QA outputs:
-- [`dataset/generated/qa/issues.csv`](dataset/generated/qa/issues.csv)
-- [`dataset/generated/qa/coverage.csv`](dataset/generated/qa/coverage.csv)
-- [`dataset/generated/qa/summary.json`](dataset/generated/qa/summary.json)
-
-### 3) Build trainable annotations
-
-```bash
-python scripts/build_training_dataset.py \
-  --generated-dir dataset/generated \
-  --output-csv dataset/generated/train_annotations.csv \
-  --output-jsonl dataset/generated/train_annotations.jsonl
-```
-
-Then create train/val splits:
-
-```bash
-python scripts/train_textfield_model.py \
-  --annotations dataset/generated/train_annotations.csv \
-  --out-dir dataset/generated/splits \
-  --val-ratio 0.2 \
-  --seed 42
-```
-
-Split outputs:
-- [`dataset/generated/splits/train.csv`](dataset/generated/splits/train.csv)
-- [`dataset/generated/splits/val.csv`](dataset/generated/splits/val.csv)
-- [`dataset/generated/splits/split_summary.json`](dataset/generated/splits/split_summary.json)
-
-### 4) Benchmark pipeline vs annotations (field-level metrics)
-
-Run benchmark (uses OCR pipeline predictions vs `train_annotations.csv`):
-
-```bash
-python scripts/benchmark_pipeline.py \
-  --annotations dataset/generated/train_annotations.csv \
-  --config config/ruhsat_schema.yaml \
-  --output-dir dataset/generated/qa/benchmark
-```
-
-If Tesseract is only available in conda env:
-
-```bash
-conda run -n ocrreader python scripts/benchmark_pipeline.py \
-  --annotations dataset/generated/train_annotations.csv \
-  --config config/ruhsat_schema.yaml \
-  --output-dir dataset/generated/qa/benchmark
-```
-
-Benchmark outputs:
-- [`dataset/generated/qa/benchmark/summary.json`](dataset/generated/qa/benchmark/summary.json)
-- [`dataset/generated/qa/benchmark/field_metrics.csv`](dataset/generated/qa/benchmark/field_metrics.csv)
-- [`dataset/generated/qa/benchmark/mismatches.csv`](dataset/generated/qa/benchmark/mismatches.csv)
-- [`dataset/generated/qa/benchmark/predictions.csv`](dataset/generated/qa/benchmark/predictions.csv)
-
-Suggested regression workflow:
-1. Rebuild annotations after parser changes.
-2. Run benchmark and compare `field_metrics.csv` with previous run.
-3. Prioritize fixes by highest `fn` and lowest recall fields.
-
+- The schema remains configurable so field positions can be tuned without changing pipeline code.
+- `testdata/` is the only built-in image workspace kept in the repo.
+- For command examples, use `SCRIPT_RUNBOOK.md`.
