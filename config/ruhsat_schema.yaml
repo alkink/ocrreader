@@ -1,0 +1,277 @@
+pipeline:
+  output_width: 2200
+  output_height: 1400
+  document_detector:
+    min_area_ratio: 0.20
+    canny_threshold1: 60
+    canny_threshold2: 180
+  deskew:
+    enabled: true
+    max_correction_deg: 8.0
+
+benchmark:
+  # Sadece review_status: ok veya fixed olan satırları değerlendir.
+  # needs_review satırları GT'si güvenilmez — bunları dahil etmek skoru yapay düşürür.
+  reviewed_only: true
+  allowed_review_statuses: ["ok", "fixed"]
+
+  # benchmark_exclude: true olan field'lar değerlendirme dışı kalır.
+  # (owner_name gibi GT'de çok boş olan alanlar precision/recall'u yanıltır)
+  respect_benchmark_exclude: true
+
+  # Confidence sweep — hangi threshold'larda precision/coverage analizi yapılsın
+  confidence_sweep: "0,8,12,16,20,24,28,32"
+
+  # En az bu kadar dolu GT alanı olan satırları değerlendir (gürültüyü azaltır)
+  min_gt_fields: 4
+
+ocr:
+  executable: 'C:/Program Files/Tesseract-OCR/tesseract.exe'
+  language: "tur+eng"
+  oem: 3
+  psm: 6
+
+anchors:
+  plate_label:
+    aliases: ["PLAKA"]
+    min_score: 0.55
+    search_region_norm: [0.00, 0.05, 0.45, 0.45]
+
+  brand_label:
+    aliases: ["MARKASI", "MARKASI"]
+    min_score: 0.50
+    search_region_norm: [0.00, 0.20, 0.50, 0.35]
+
+  type_label:
+    aliases: ["TIPI", "TIPI", "TIPI"]
+    min_score: 0.65
+    search_region_norm: [0.18, 0.20, 0.45, 0.35]
+
+  model_year_label:
+    aliases: ["MODEL YILI", "MODELYILI", "MODELYILI"]
+    min_score: 0.45
+    search_region_norm: [0.20, 0.25, 0.40, 0.45]
+
+  engine_no_label:
+    aliases: ["MOTOR NO", "MOTORNO"]
+    min_score: 0.55
+    search_region_norm: [0.00, 0.40, 0.50, 0.30]
+
+  chassis_no_label:
+    aliases: ["SASE NO", "SASE NO", "ŞASE NO"]
+    min_score: 0.70
+    search_region_norm: [0.00, 0.50, 0.50, 0.30]
+
+  tax_no_label:
+    aliases: ["VERGI NO", "VERGI NO"]
+    min_score: 0.50
+    search_region_norm: [0.50, 0.00, 0.50, 0.25]
+
+  surname_label:
+    aliases: ["SOYADI", "SOYADI TICARI UNVANI"]
+    min_score: 0.60
+    search_region_norm: [0.50, 0.05, 0.50, 0.30]
+
+  name_label:
+    aliases: ["ADI"]
+    min_score: 0.70
+    search_region_norm: [0.50, 0.12, 0.50, 0.35]
+
+  first_registration_label:
+    aliases: ["ILK TESCIL TARIHI", "ILK TESCIL", "ILK TESCIL TAR", "ILKTESCIL", "ILK TESC1L", "ILKTESCILTARIHI"]
+    min_score: 0.50
+    search_region_norm: [0.18, 0.08, 0.40, 0.22]
+
+  registration_label:
+    aliases: ["TESCIL TARIHI", "TESCIL TAR", "TESCILTARIHI"]
+    min_score: 0.55
+    search_region_norm: [0.18, 0.14, 0.45, 0.22]
+
+  inspection_label:
+    aliases: ["DIGER BILGILER", "MUA GEC TRH", "MUAYENE"]
+    min_score: 0.45
+    search_region_norm: [0.50, 0.55, 0.50, 0.35]
+
+  serial_label:
+    aliases: ["BELGE SERI", "SERI"]
+    min_score: 0.45
+    search_region_norm: [0.52, 0.78, 0.45, 0.20]
+
+fields:
+  # ─────────────────────────────────────────────────────────────────
+  # Yüksek hassasiyet gerektiren alanlar (hatalı çıktı = ciddi risk)
+  # Bunlarda threshold yüksek tutuldu — emin değilse ABSTAIN et
+  # ─────────────────────────────────────────────────────────────────
+
+  plate:
+    anchor: plate_label
+    offset_from_anchor_norm: [0.000, 0.035, 0.190, 0.075]
+    fallback_norm: [0.060, 0.165, 0.220, 0.080]
+    value_from_anchor: below
+    value_margin_norm: [0.010, 0.006, 0.140, 0.070]
+    force_method: anchor_below_line
+    cleanup: plate
+    psm: 7
+    confidence_threshold: 12   # alnum_upper score bandina uygun (aksi halde tum satirlar reddediliyordu)
+
+  chassis_no:
+    anchor: chassis_no_label
+    offset_from_anchor_norm: [0.000, 0.030, 0.320, 0.075]
+    fallback_norm: [0.080, 0.530, 0.380, 0.080]
+    value_from_anchor: below
+    value_margin_norm: [0.010, 0.004, 0.260, 0.080]
+    force_method: anchor_below_line
+    cleanup: alnum_upper
+    psm: 7
+    confidence_threshold: 17   # VIN uzunluk/kaliteyi korurken gereksiz reddi azalt
+
+  engine_no:
+    anchor: engine_no_label
+    offset_from_anchor_norm: [0.000, 0.030, 0.320, 0.075]
+    fallback_norm: [0.080, 0.440, 0.380, 0.080]
+    value_from_anchor: below
+    value_margin_norm: [0.010, 0.004, 0.260, 0.080]
+    force_method: anchor_below_line
+    cleanup: alnum_upper
+    psm: 7
+    confidence_threshold: 15   # kisa ama gecerli engine_no'larin reddini azalt
+
+  tax_or_id_no:
+    anchor: tax_no_label
+    offset_from_anchor_norm: [0.150, -0.008, 0.220, 0.065]
+    fallback_norm: [0.670, 0.090, 0.240, 0.080]
+    value_from_anchor: right
+    value_margin_norm: [0.004, 0.004, 0.210, 0.045]
+    force_method: anchor_right_line
+    cleanup: digits
+    psm: 7
+    confidence_threshold: 9    # digits score = uzunluk; 10-11 hane icin gercekci esik
+
+  # ─────────────────────────────────────────────────────────────────
+  # Orta hassasiyet — hatalı olursa fark edilebilir ama kritik değil
+  # ─────────────────────────────────────────────────────────────────
+
+  brand:
+    anchor: brand_label
+    offset_from_anchor_norm: [0.000, 0.030, 0.220, 0.070]
+    fallback_norm: [0.060, 0.340, 0.250, 0.080]
+    value_from_anchor: below
+    value_margin_norm: [0.010, 0.004, 0.120, 0.045]
+    prefer_anchor: true
+    force_method: anchor_below_line
+    cleanup: text_upper
+    psm: 7
+    confidence_threshold: 4
+
+  type:
+    anchor: type_label
+    offset_from_anchor_norm: [0.000, 0.030, 0.180, 0.070]
+    fallback_norm: [0.320, 0.340, 0.200, 0.080]
+    value_from_anchor: right
+    value_margin_norm: [0.006, 0.002, 0.170, 0.020]
+    prefer_anchor: true
+    force_method: anchor_right_line
+    cleanup: vehicle_type
+    min_len: 2
+    prefer_mixed_alnum: true
+    strip_prefixes: ["TIPI", "TIP", "TYPE"]
+    psm: 7
+    confidence_threshold: 8
+
+  model_year:
+    anchor: model_year_label
+    offset_from_anchor_norm: [0.000, 0.030, 0.100, 0.070]
+    fallback_norm: [0.360, 0.300, 0.120, 0.080]
+    value_from_anchor: below
+    value_margin_norm: [0.000, 0.004, 0.070, 0.065]
+    force_method: anchor_below_line
+    cleanup: digits
+    psm: 7
+    confidence_threshold: 4    # digits score = 4; onceki esik teknik olarak imkansizdi
+
+  owner_surname:
+    anchor: surname_label
+    offset_from_anchor_norm: [0.160, 0.000, 0.230, 0.070]
+    fallback_norm: [0.680, 0.180, 0.240, 0.080]
+    value_from_anchor: right
+    value_margin_norm: [0.004, 0.000, 0.260, 0.035]
+    prefer_anchor: true
+    force_method: roi_line
+    cleanup: owner_text
+    min_len: 3
+    confidence_threshold: 14   # eskiden 12 — biraz daha sıkı
+    strip_prefixes: ["SOYADI", "TICARI UNVANI", "UNVANI"]
+    psm: 7
+    benchmark_exclude: true   # owner_surname su an benchmark'i asiri kirletiyor; ana alanlar stabilize olana kadar disarida
+
+  owner_name:
+    anchor: name_label
+    offset_from_anchor_norm: [0.160, 0.000, 0.230, 0.070]
+    fallback_norm: [0.680, 0.245, 0.240, 0.080]
+    value_from_anchor: below
+    value_margin_norm: [0.000, 0.004, 0.220, 0.070]
+    prefer_anchor: true
+    force_method: roi_line
+    cleanup: owner_text
+    min_len: 2
+    strip_prefixes: ["ADI"]
+    psm: 7
+    confidence_threshold: 8
+    benchmark_exclude: true   # GT'de %81 boş — benchmark'ı kirletiyor, skorlar stabil olana kadar dışarıda tut
+
+  # ─────────────────────────────────────────────────────────────────
+  # Tarih alanları — format validasyonu (DD/MM/YYYY) ek güvence sağlar
+  # ─────────────────────────────────────────────────────────────────
+
+  first_registration_date:
+    anchor: first_registration_label
+    offset_from_anchor_norm: [0.000, 0.028, 0.150, 0.070]
+    fallback_norm: [0.230, 0.155, 0.170, 0.075]
+    value_from_anchor: below
+    value_margin_norm: [0.005, 0.003, 0.120, 0.065]
+    prefer_anchor: true
+    force_method: anchor_below_line
+    cleanup: date
+    min_len: 10
+    psm: 7
+    confidence_threshold: 14   # format regex zaten yanlışı eliyor
+
+  registration_date:
+    anchor: registration_label
+    offset_from_anchor_norm: [0.000, 0.028, 0.150, 0.070]
+    fallback_norm: [0.230, 0.210, 0.170, 0.075]
+    value_from_anchor: below
+    value_margin_norm: [0.005, 0.003, 0.120, 0.065]
+    prefer_anchor: true
+    force_method: anchor_below_line
+    cleanup: date
+    min_len: 10
+    psm: 7
+    confidence_threshold: 14
+
+  inspection_date:
+    anchor: inspection_label
+    offset_from_anchor_norm: [0.000, 0.022, 0.180, 0.065]
+    fallback_norm: [0.640, 0.740, 0.220, 0.070]
+    value_from_anchor: below
+    value_margin_norm: [0.005, 0.003, 0.180, 0.080]
+    prefer_anchor: true
+    force_method: roi_line
+    cleanup: date
+    min_len: 10
+    psm: 7
+    confidence_threshold: 12   # muayene tarihi en az kritik alan
+
+  serial_no:
+    anchor: serial_label
+    offset_from_anchor_norm: [0.000, 0.022, 0.220, 0.070]
+    fallback_norm: [0.640, 0.830, 0.260, 0.080]
+    value_from_anchor: right
+    value_margin_norm: [0.005, 0.002, 0.220, 0.040]
+    prefer_anchor: true
+    force_method: roi_line
+    cleanup: text_upper
+    min_len: 5
+    confidence_threshold: 6    # text_upper score ile uyumlu; aksi halde neredeyse tumu reddediliyor
+    strip_prefixes: ["BELGE", "SERI", "SERI:"]
+    psm: 7

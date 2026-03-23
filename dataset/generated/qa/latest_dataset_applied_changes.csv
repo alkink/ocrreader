@@ -1,0 +1,179 @@
+latest_line,matched_line,image,field,old,new,score
+2,3,dataset/photo/213227.jpg,tax_or_id_no,,9130308027,335
+2,3,dataset/photo/213227.jpg,owner_surname,(NER TASIMACILIK OTOMOTIV EMLAK TICARI UNVAAT TURIZMTICARET LIMITED SIRKETI) INSAAT TURIZMTICARET LIMITED SIRKETI,UNER TASIMACILIK OTOMOTIV EMLAK INSAAT TURIZM TICARET LIMITED SIRKETI,335
+3,5,dataset/photo/87299063_3340942985935065_1834807748223565824_n.jpg,brand,CUSWA,KUBA,323
+4,2,dataset/photo/132020380_1753782264797081_6362873494041143451_n.jpg,tax_or_id_no,,36287009016,335
+4,2,dataset/photo/132020380_1753782264797081_6362873494041143451_n.jpg,owner_name,,IZBEYR,335
+4,2,dataset/photo/132020380_1753782264797081_6362873494041143451_n.jpg,owner_surname,,AKAN,335
+4,2,dataset/photo/132020380_1753782264797081_6362873494041143451_n.jpg,inspection_date,,25/12/2020,335
+5,4,dataset/photo/555836083_24672058915768589_252055332851890785_n.jpg,owner_surname,TICARI UNVASI DIKER,DIKER,335
+6,6,dataset/photo/arora-motor-motor-beyin-hak-1_768x768.jpg,plate,,42AYV161,103
+6,6,dataset/photo/arora-motor-motor-beyin-hak-1_768x768.jpg,brand,RORA,ARORA,103
+6,6,dataset/photo/arora-motor-motor-beyin-hak-1_768x768.jpg,chassis_no,,LX6TB38A0P2600321,103
+6,6,dataset/photo/arora-motor-motor-beyin-hak-1_768x768.jpg,tax_or_id_no,,51802345288,103
+6,6,dataset/photo/arora-motor-motor-beyin-hak-1_768x768.jpg,owner_name,,SENOL,103
+6,6,dataset/photo/arora-motor-motor-beyin-hak-1_768x768.jpg,owner_surname,,DEMIRTAS,103
+7,52,dataset/photo/Ekran görüntüsü 2026-03-04 115605.png,plate,06BN7820,06BN7821,100
+7,52,dataset/photo/Ekran görüntüsü 2026-03-04 115605.png,vehicle_type,CLIO SYMBOL 1.5,CLIO SYMBOL AUTH 1.5 DCI,100
+7,52,dataset/photo/Ekran görüntüsü 2026-03-04 115605.png,engine_no,K9KA7D157126,K9KA7D156642,100
+7,52,dataset/photo/Ekran görüntüsü 2026-03-04 115605.png,chassis_no,VF1LR240539627843,VF1LB240539627844,100
+7,52,dataset/photo/Ekran görüntüsü 2026-03-04 115605.png,inspection_date,,06/05/2011,100
+7,52,dataset/photo/Ekran görüntüsü 2026-03-04 115605.png,serial_no,AON 723572,AG NO 119372,100
+8,8,dataset/photo/Ekran görüntüsü 2026-03-04 112525.png,chassis_no,NM0EXXTRELY73352,NM0EXXTTRELY73352,235
+8,8,dataset/photo/Ekran görüntüsü 2026-03-04 112525.png,owner_surname,TICARI UNNAN BIPTA OFIS KIRTASIYEVE PROMOSYON,GIPTA OFIS KIRTASIYE VE PROMOSYON UR. IM. SAN. A.S.,235
+9,9,dataset/photo/Ekran görüntüsü 2026-03-04 112723.png,vehicle_type,0403 SHD,O403 SHD,335
+9,9,dataset/photo/Ekran görüntüsü 2026-03-04 112723.png,tax_or_id_no,,3950067062,335
+9,9,dataset/photo/Ekran görüntüsü 2026-03-04 112723.png,owner_surname,,GIPTA OFIS KIRTASIYE VE PROMOSYON UR. IM. SAN. A.S.,335
+9,9,dataset/photo/Ekran görüntüsü 2026-03-04 112723.png,serial_no,,FY NO 258128,335
+10,10,dataset/photo/Ekran görüntüsü 2026-03-04 112817.png,vehicle_type,0403 SHD,O403 SHD,335
+10,10,dataset/photo/Ekran görüntüsü 2026-03-04 112817.png,owner_surname,,GIPTA OFIS KIRTASIYE VE PROMOSYON UR. IM. SAN. A.S.,335
+10,10,dataset/photo/Ekran görüntüsü 2026-03-04 112817.png,serial_no,FM.N: 939734,FM NO 939734,335
+11,11,dataset/photo/Ekran görüntüsü 2026-03-04 112840.png,vehicle_type,0 403 SHD,O 403 SHD,335
+11,11,dataset/photo/Ekran görüntüsü 2026-03-04 112840.png,owner_surname,TICARI UNVANCI (IPTA OFIS KIRTASIYEVE PROMOSYON,GIPTA OFIS KIRTASIYE VE PROMOSYON UR. IM. SAN. A.S.,335
+11,11,dataset/photo/Ekran görüntüsü 2026-03-04 112840.png,serial_no,,FK NO 007520,335
+12,12,dataset/photo/Ekran görüntüsü 2026-03-04 112913.png,registration_date,03/06/2004,10/12/2020,325
+12,12,dataset/photo/Ekran görüntüsü 2026-03-04 112913.png,owner_surname,,GIPTA OFIS KIRTASIYE VE PROMOSYON UR.IM.SAN.A.S.,325
+12,12,dataset/photo/Ekran görüntüsü 2026-03-04 112913.png,serial_no,FM.N: 939735,FM NO 939735,325
+13,21,dataset/photo/Ekran görüntüsü 2026-03-04 113259.png,chassis_no,KMHBTS1VAAU950366,KMHBT51VAAU950366,235
+13,21,dataset/photo/Ekran görüntüsü 2026-03-04 113259.png,owner_surname,,GIPTA OFIS KIRTASIYE VE PROMOSYON UR.IM.SAN.A.S.,235
+14,14,dataset/photo/Ekran görüntüsü 2026-03-04 113005.png,tax_or_id_no,,3950067062,335
+14,14,dataset/photo/Ekran görüntüsü 2026-03-04 113005.png,owner_surname,TICARI UNVAK,GIPTA OFIS KIRTASIYE VE PROMOSYON UR.IM.SAN.A.S.,335
+14,14,dataset/photo/Ekran görüntüsü 2026-03-04 113005.png,inspection_date,,31/01/2025,335
+14,14,dataset/photo/Ekran görüntüsü 2026-03-04 113005.png,serial_no,GD.N: 864030,GD NO 864030,335
+15,15,dataset/photo/Ekran görüntüsü 2026-03-04 113030.png,plate,,06DB2353,135
+15,15,dataset/photo/Ekran görüntüsü 2026-03-04 113030.png,vehicle_type,,O403.,135
+15,15,dataset/photo/Ekran görüntüsü 2026-03-04 113030.png,engine_no,40297G10946324,40297010946324,135
+15,15,dataset/photo/Ekran görüntüsü 2026-03-04 113030.png,owner_surname,TICARI UNVASSI,GIPTA OFIS KIRTASIYE VE PROMOSYON UR.IM.SAN.A.S.,135
+16,16,dataset/photo/Ekran görüntüsü 2026-03-04 113101.png,vehicle_type,YENI SYMBOL,YENI SYMBOL AUTHENTIQUE 1.5 DCI,335
+16,16,dataset/photo/Ekran görüntüsü 2026-03-04 113101.png,owner_surname,GIPTA OFIS KIRTASIYEVE PROMOSYON,GIPTA OFIS KIRTASIYE VE PROMOSYON UR.IM.SAN.A.S.,335
+17,17,dataset/photo/Ekran görüntüsü 2026-03-04 113120.png,vehicle_type,YENI SYMBOL 1.5 DCI,YENI SYMBOL 1.5 DCI AUTH,335
+17,17,dataset/photo/Ekran görüntüsü 2026-03-04 113120.png,owner_surname,TICARI UNYANI SIPTA OFIS KIRTASIYEVE PROMOSYON,GIPTA OFIS KIRTASIYE VE PROMOSYON UR.IM.SAN.A.S.,335
+18,18,dataset/photo/Ekran görüntüsü 2026-03-04 113148.png,vehicle_type,YENI SYMBOL 1.5,YENI SYMBOL 1.5 DCI,335
+18,18,dataset/photo/Ekran görüntüsü 2026-03-04 113148.png,owner_surname,,GIPTA OFIS KIRTASIYE VE PROMOSYON UR.IM.SAN.A.S.,335
+18,18,dataset/photo/Ekran görüntüsü 2026-03-04 113148.png,serial_no,,BC NO 881270,335
+19,19,dataset/photo/Ekran görüntüsü 2026-03-04 113209.png,vehicle_type,YENI SYMBOL,YENI SYMBOL AUTHENTIQUE 1.5 DCI,235
+19,19,dataset/photo/Ekran görüntüsü 2026-03-04 113209.png,chassis_no,VF1LBNMSS43999368,VF1LBNMS543999368,235
+19,19,dataset/photo/Ekran görüntüsü 2026-03-04 113209.png,owner_surname,UK.IM.SAN.AS.,GIPTA OFIS KIRTASIYE VE PROMOSYON UR.IM.SAN.A.S.,235
+20,20,dataset/photo/Ekran görüntüsü 2026-03-04 113233.png,owner_surname,TICARI UNNANI GIPTA OFIS KIRTASIYEVE PROMOSYON,GIPTA OFIS KIRTASIYE VE PROMOSYON UR.IM.SAN.A.S.,335
+20,20,dataset/photo/Ekran görüntüsü 2026-03-04 113233.png,serial_no,,BC NO 881202,335
+22,22,dataset/photo/Ekran görüntüsü 2026-03-04 113329.png,brand,,RENAULT,323
+22,22,dataset/photo/Ekran görüntüsü 2026-03-04 113329.png,owner_surname,TICARI ONNAN DIPTA OFIS KIRTASIYEVE PROMOSYON,GIPTA OFIS KIRTASIYE VE PROMOSYON UR. IM. SAN. A.S.,323
+22,22,dataset/photo/Ekran görüntüsü 2026-03-04 113329.png,inspection_date,,24/11/2022,323
+22,22,dataset/photo/Ekran görüntüsü 2026-03-04 113329.png,serial_no,,FR NO 495519,323
+23,23,dataset/photo/Ekran görüntüsü 2026-03-04 113359.png,plate,06DNS806,06DN8806,203
+23,23,dataset/photo/Ekran görüntüsü 2026-03-04 113359.png,brand,BENAULT,RENAULT,203
+23,23,dataset/photo/Ekran görüntüsü 2026-03-04 113359.png,tax_or_id_no,,3950067062,203
+23,23,dataset/photo/Ekran görüntüsü 2026-03-04 113359.png,owner_surname,TICARI UNIVANEIPTA OFIS KIRTASIYEVE PROMOSYON,GIPTA OFIS KIRTASIYE VE PROMOSYON UR. IM. SAN. A.S.,203
+23,23,dataset/photo/Ekran görüntüsü 2026-03-04 113359.png,serial_no,,FR NO 495517,203
+24,24,dataset/photo/Ekran görüntüsü 2026-03-04 113426.png,brand,RENALIT,RENAULT,223
+24,24,dataset/photo/Ekran görüntüsü 2026-03-04 113426.png,vehicle_type,ENI SYMBOL AUTH.1.5 DCI 65,YENI SYMBOL AUTH.1.5 DCI 65,223
+24,24,dataset/photo/Ekran görüntüsü 2026-03-04 113426.png,chassis_no,VFILBNMS546389817,VF1LBNMS546389817,223
+24,24,dataset/photo/Ekran görüntüsü 2026-03-04 113426.png,owner_surname,TICARI UNIVAN SIPTA OFIS KIRTASIYEVE PROMOSYON,GIPTA OFIS KIRTASIYE VE PROMOSYON UR. IM. SAN. A.S.,223
+26,26,dataset/photo/Ekran görüntüsü 2026-03-04 113608.png,vehicle_type,JTB,JT8,155
+26,26,dataset/photo/Ekran görüntüsü 2026-03-04 113608.png,engine_no,,EG37460,155
+26,26,dataset/photo/Ekran görüntüsü 2026-03-04 113608.png,chassis_no,NMOMXXTACMEG37460,NM0MXXTACMEG37460,155
+26,26,dataset/photo/Ekran görüntüsü 2026-03-04 113608.png,owner_surname,GIPTA OFIS KIRTASIYEVE PROMOSYON,GIPTA OFIS KIRTASIYE VE PROMOSYON UR.IM.SAN.A.S.,155
+26,26,dataset/photo/Ekran görüntüsü 2026-03-04 113608.png,serial_no,CH N: 664414,CH NO 664414,155
+27,27,dataset/photo/Ekran görüntüsü 2026-03-04 113639.png,registration_date,03/01/2012,03/03/2022,225
+27,27,dataset/photo/Ekran görüntüsü 2026-03-04 113639.png,vehicle_type,YENI SYMBOL AUT.H.1.5 DCI 65,YENI SYMBOL AUTH.1.5 DCI 65,225
+27,27,dataset/photo/Ekran görüntüsü 2026-03-04 113639.png,chassis_no,VFILBNMS546544758,VF1LBNMS546544758,225
+27,27,dataset/photo/Ekran görüntüsü 2026-03-04 113639.png,owner_surname,TICARI UNIVAK PTA OFIS KIRTASIYEVE PROMOSYON,GIPTA OFIS KIRTASIYE VE PROMOSYON UR. IM. SAN. A.S.,225
+27,27,dataset/photo/Ekran görüntüsü 2026-03-04 113639.png,inspection_date,,19/12/2022,225
+27,27,dataset/photo/Ekran görüntüsü 2026-03-04 113639.png,serial_no,,FR NO 495515,225
+28,28,dataset/photo/Ekran görüntüsü 2026-03-04 113718.png,tax_or_id_no,,3950067062,335
+28,28,dataset/photo/Ekran görüntüsü 2026-03-04 113718.png,owner_surname,TICARI ENVANBIPTA OFIS KIRTASIYEVE PROMOSYON,GIPTA OFIS KIRTASIYE VE PROMOSYON UR. IM. SAN. A.S.,335
+29,29,dataset/photo/Ekran görüntüsü 2026-03-04 113736.png,vehicle_type,YENI SYMBOL AUT,YENI SYMBOL AUTH.1.5 DCI 65,235
+29,29,dataset/photo/Ekran görüntüsü 2026-03-04 113736.png,chassis_no,VFILBNMS546389822,VF1LBNMS546389822,235
+29,29,dataset/photo/Ekran görüntüsü 2026-03-04 113736.png,owner_surname,PTA OFIS KIRTASIYEVE PROMOSYON,GIPTA OFIS KIRTASIYE VE PROMOSYON UR. IM. SAN. A.S.,235
+30,30,dataset/photo/Ekran görüntüsü 2026-03-04 113829.png,owner_surname,GIPTA OFIS KIRTASIYEVE PROMOSYON,GIPTA OFIS KIRTASIYE VE PROMOSYON UR.IM.SAN.A.S.,335
+30,30,dataset/photo/Ekran görüntüsü 2026-03-04 113829.png,serial_no,,CH NO 664415,335
+31,31,dataset/photo/Ekran görüntüsü 2026-03-04 114050.png,vehicle_type,JTB,JT8,235
+31,31,dataset/photo/Ekran görüntüsü 2026-03-04 114050.png,chassis_no,NMOMXXTACMEG38872,NM0MXXTACMEG38872,235
+31,31,dataset/photo/Ekran görüntüsü 2026-03-04 114050.png,owner_surname,TICARI UNYANI GIPTA OFIS KIRTASIYEVE PROMOSYON,GIPTA OFIS KIRTASIYE VE PROMOSYON UR.IM.SAN.A.S.,235
+31,31,dataset/photo/Ekran görüntüsü 2026-03-04 114050.png,serial_no,,CH NO 664417,235
+32,32,dataset/photo/Ekran görüntüsü 2026-03-04 114140.png,vehicle_type,JTB,JT8,235
+32,32,dataset/photo/Ekran görüntüsü 2026-03-04 114140.png,chassis_no,HUONXXTACHEG39165,NM0MXXTACMEG39165,235
+32,32,dataset/photo/Ekran görüntüsü 2026-03-04 114140.png,tax_or_id_no,2950067062,3950067062,235
+32,32,dataset/photo/Ekran görüntüsü 2026-03-04 114140.png,owner_surname,,GIPTA OFIS KIRTASIYE VE PROMOSYON UR.IM.SAN.A.S.,235
+33,33,dataset/photo/Ekran görüntüsü 2026-03-04 114214.png,vehicle_type,JTB,JT8,155
+33,33,dataset/photo/Ekran görüntüsü 2026-03-04 114214.png,engine_no,,EG37850,155
+33,33,dataset/photo/Ekran görüntüsü 2026-03-04 114214.png,chassis_no,,NM0MXXTACMEG37850,155
+33,33,dataset/photo/Ekran görüntüsü 2026-03-04 114214.png,tax_or_id_no,2050067062,3950067062,155
+33,33,dataset/photo/Ekran görüntüsü 2026-03-04 114214.png,owner_surname,,GIPTA OFIS KIRTASIYE VE PROMOSYON UR.IM.SAN.A.S.,155
+33,33,dataset/photo/Ekran görüntüsü 2026-03-04 114214.png,serial_no,,CH NO 664416,155
+34,34,dataset/photo/Ekran görüntüsü 2026-03-04 114241.png,owner_surname,GIPTA OFIS KIRTASIYEVE PROMOSYON,GIPTA OFIS KIRTASIYE VE PROMOSYON UR.IM.SAN.A.S.,335
+34,34,dataset/photo/Ekran görüntüsü 2026-03-04 114241.png,serial_no,,CH NO 664418,335
+35,35,dataset/photo/Ekran görüntüsü 2026-03-04 114336.png,vehicle_type,JTB,JT8,235
+35,35,dataset/photo/Ekran görüntüsü 2026-03-04 114336.png,chassis_no,HM0MXXTACMEG39348,NM0MXXTACMEG39348,235
+35,35,dataset/photo/Ekran görüntüsü 2026-03-04 114336.png,owner_surname,GIPTA OFIS KIRTASIYEVE PROMOSYON,GIPTA OFIS KIRTASIYE VE PROMOSYON UR.IM.SAN.A.S.,235
+36,36,dataset/photo/Ekran görüntüsü 2026-03-04 114424.png,chassis_no,NM0XXXTGXFE39472,NM0XXTTGXFE39472,235
+36,36,dataset/photo/Ekran görüntüsü 2026-03-04 114424.png,owner_surname,GIPTA OFIS KIRTASIYEVE PROMOSYON,GIPTA OFIS KIRTASIYE VE PROMOSYON UR.IM.SAN.A.S.,235
+38,38,dataset/photo/Ekran görüntüsü 2026-03-04 114622.png,chassis_no,NM0XXXTGXGK88874,NM0XXXTTGXGK88874,235
+38,38,dataset/photo/Ekran görüntüsü 2026-03-04 114622.png,owner_surname,TICARI UNVANA GIPTA OFIS KIRTASIYEVE PROMOSYON,GIPTA OFIS KIRTASIYE VE PROMOSYON UR.IM.SAN.A.S.,235
+39,39,dataset/photo/Ekran görüntüsü 2026-03-04 114649.png,vehicle_type,,YENI SYMBOL AUTH 1.5 DCI,335
+39,39,dataset/photo/Ekran görüntüsü 2026-03-04 114649.png,owner_surname,TICARI UNVAS,GIPTA OFIS KIRTASIYE PROMOSYON UR.IM.SAN.A.S.,335
+40,40,dataset/photo/Ekran görüntüsü 2026-03-04 114715.png,vehicle_type,,YENI SYMBOL AUTHENTIQE 1.5 DCI,335
+40,40,dataset/photo/Ekran görüntüsü 2026-03-04 114715.png,owner_surname,TICARI UNVALIHROMOSYON UR.IM.SAN.A.S.,GIPTA OFIS KIRTASIYE VE PROMOSYON UR.IM.SAN.A.S.,335
+41,41,dataset/photo/Ekran görüntüsü 2026-03-04 114822.png,chassis_no,NM0XXXTGXGK00578,NM0XXXTTGXGK00578,235
+41,41,dataset/photo/Ekran görüntüsü 2026-03-04 114822.png,owner_surname,,GIPTA OFIS KIRTASIYE VE PROMOSYON UR.IM.SAN.A.S.,235
+43,43,dataset/photo/Ekran görüntüsü 2026-03-04 114911.png,vehicle_type,JTB,JT8,335
+43,43,dataset/photo/Ekran görüntüsü 2026-03-04 114911.png,tax_or_id_no,,3950067062,335
+43,43,dataset/photo/Ekran görüntüsü 2026-03-04 114911.png,owner_surname,,GIPTA OFIS KIRTASIYE VE PROMOSYON UR.IM.SAN.A.S.,335
+45,45,dataset/photo/Ekran görüntüsü 2026-03-04 115109.png,vehicle_type,,YENI SYMBOL AUT 1.5 DCI,335
+45,45,dataset/photo/Ekran görüntüsü 2026-03-04 115109.png,owner_surname,TICARI UNVAL,GIPTA OFIS KIRTASIYE VE PROMOSYON UR.IM.SAN.A.S.,335
+45,45,dataset/photo/Ekran görüntüsü 2026-03-04 115109.png,serial_no,,BE NO 490998,335
+46,46,dataset/photo/Ekran görüntüsü 2026-03-04 115148.png,plate,06MZYS1,06MZY51,215
+46,46,dataset/photo/Ekran görüntüsü 2026-03-04 115148.png,vehicle_type,MEGANE HILLOCAL,MEGANE HBLOCAL DYNM 1.5DCI 110,215
+46,46,dataset/photo/Ekran görüntüsü 2026-03-04 115148.png,owner_surname,TICARI UNIVASIPTA OFIS KIRTASIYEVE PROMOSYON,GIPTA OFIS KIRTASIYE VE PROMOSYON UR.IM.SAN.A.S.,215
+46,46,dataset/photo/Ekran görüntüsü 2026-03-04 115148.png,inspection_date,,13/02/2023,215
+46,46,dataset/photo/Ekran görüntüsü 2026-03-04 115148.png,serial_no,,FR NO 495513,215
+47,47,dataset/photo/Ekran görüntüsü 2026-03-04 115233.png,owner_surname,IPITA OFIS KIRTASIYEVE PROMOSYON UR.IM.SAN.A.S.,GIPTA OFIS KIRTASIYE VE PROMOSYON UR.IM.SAN.A.S.,335
+48,48,dataset/photo/Ekran görüntüsü 2026-03-04 115337.png,vehicle_type,311,J11,335
+48,48,dataset/photo/Ekran görüntüsü 2026-03-04 115337.png,tax_or_id_no,,3950067062,335
+48,48,dataset/photo/Ekran görüntüsü 2026-03-04 115337.png,owner_surname,UR.IM.SAN.A.S.,GIPTA OFIS KIRTASIYE VE PROMOSYON UR.IM.SAN.A.S.,335
+49,49,dataset/photo/Ekran görüntüsü 2026-03-04 115420.png,plate,,06NP509,185
+49,49,dataset/photo/Ekran görüntüsü 2026-03-04 115420.png,registration_date,,16/09/2010,185
+49,49,dataset/photo/Ekran görüntüsü 2026-03-04 115420.png,brand,,MERCEDES-BENZ,185
+49,49,dataset/photo/Ekran görüntüsü 2026-03-04 115420.png,owner_surname,,GIPTA OFIS KIRTASIYE VE PROMOSYON UR.IM.SAN.A.S.,185
+50,50,dataset/photo/Ekran görüntüsü 2026-03-04 115453.png,brand,RENALIT,RENAULT,323
+50,50,dataset/photo/Ekran görüntüsü 2026-03-04 115453.png,vehicle_type,FLUENCE PRIVILEGE 1.5,FLUENCE PRIVILEGE 1.5 DCI 110,323
+50,50,dataset/photo/Ekran görüntüsü 2026-03-04 115453.png,owner_surname,TICARI UNVALIFTA OFIS KIRTASIYEVES PROMOSYON,GIPTA OFIS KIRTASIYE VE PROMOSYON UR.IM.SAN.A.S.,323
+50,50,dataset/photo/Ekran görüntüsü 2026-03-04 115453.png,inspection_date,,31/12/2022,323
+51,51,dataset/photo/Ekran görüntüsü 2026-03-04 115525.png,vehicle_type,YENI SYMBOL AUT 1.5,YENI SYMBOL AUT 1.5 DCI,335
+51,51,dataset/photo/Ekran görüntüsü 2026-03-04 115525.png,owner_surname,<BR/>TICARI UNIVASI YERI SORU<BR/>SIPTA OFIS KIRTASIYEVE PROMOSYON<BR/>UR.IM.SAN.A.S.,GIPTA OFIS KIRTASIYE VE PROMOSYON UR.IM.SAN.A.S.,335
+52,53,dataset/photo/eksper-sonrasi-bilgi-farki-ve-satista-baski-ile-magduriyet-yasadim-3.jpg,chassis_no,VFILM0TB534973991,VF1LM0TB534973991,235
+52,53,dataset/photo/eksper-sonrasi-bilgi-farki-ve-satista-baski-ile-magduriyet-yasadim-3.jpg,tax_or_id_no,,40342785104,235
+52,53,dataset/photo/eksper-sonrasi-bilgi-farki-ve-satista-baski-ile-magduriyet-yasadim-3.jpg,owner_name,,FATIH,235
+52,53,dataset/photo/eksper-sonrasi-bilgi-farki-ve-satista-baski-ile-magduriyet-yasadim-3.jpg,owner_surname,TICARI UNYASI,CETINKAYA,235
+53,54,dataset/photo/Gemini_Generated_Image_3vs8qq3vs8qq3vs8.png,tax_or_id_no,,12345678901,325
+53,54,dataset/photo/Gemini_Generated_Image_3vs8qq3vs8qq3vs8.png,owner_name,,ALI,325
+53,54,dataset/photo/Gemini_Generated_Image_3vs8qq3vs8qq3vs8.png,owner_surname,,DENIZ,325
+54,55,dataset/photo/Gemini_Generated_Image_9b4q3m9b4q3m9b4q.png,vehicle_type,POLO 1.6 TDI 90 PS,POLO 1.6 TDI 90 PS COMFORFIT ISTANBUL,335
+54,55,dataset/photo/Gemini_Generated_Image_9b4q3m9b4q3m9b4q.png,owner_surname,,YILMAZ,335
+55,56,dataset/photo/Gemini_Generated_Image_g2vfpjg2vfpjg2vf.png,serial_no,,WY NO: 654321,325
+56,57,dataset/photo/Gemini_Generated_Image_tzsz5wtzsz5wtzsz.png,engine_no,WDDXXXXXXXXXX,WDDXXXXXXXXXXX,155
+56,57,dataset/photo/Gemini_Generated_Image_tzsz5wtzsz5wtzsz.png,chassis_no,WDDXXXXXXXXXX,WDDXXXXXXXXXXX,155
+56,57,dataset/photo/Gemini_Generated_Image_tzsz5wtzsz5wtzsz.png,tax_or_id_no,,22222222222,155
+56,57,dataset/photo/Gemini_Generated_Image_tzsz5wtzsz5wtzsz.png,owner_name,,MEHMET ALI,155
+56,57,dataset/photo/Gemini_Generated_Image_tzsz5wtzsz5wtzsz.png,owner_surname,TICARI UNYANI,SARI,155
+57,58,dataset/photo/Gemini_Generated_Image_xopl7ixopl7ixopl.png,engine_no,,B420T6345678,245
+57,58,dataset/photo/Gemini_Generated_Image_xopl7ixopl7ixopl.png,owner_surname,,AKSOY,245
+57,58,dataset/photo/Gemini_Generated_Image_xopl7ixopl7ixopl.png,inspection_date,10/10/325,10/10/2025,245
+58,59,dataset/photo/motorun-surekli-hararet-sorunu-1.jpg,brand,CEMOTO,CFMOTO,323
+58,59,dataset/photo/motorun-surekli-hararet-sorunu-1.jpg,vehicle_type,CF250-8F,CF250-6F,323
+58,59,dataset/photo/motorun-surekli-hararet-sorunu-1.jpg,inspection_date,,08/11/2027,323
+59,60,dataset/photo/renault-megane-4te-kronik-havalandirma-izgarasi-kirilmasi-ve-yuksek-onarim-maliyeti-1_768x768.jpg,tax_or_id_no,,22349290898,335
+61,52,dataset/photo/Ekran görüntüsü 2026-03-04 115605.png,plate,06BN7821,06BN7820,235
+61,52,dataset/photo/Ekran görüntüsü 2026-03-04 115605.png,vehicle_type,CLIO SYMBOL AUTH 1.5 DCI,CLIO SYMBOL 1.5 DCI,235
+61,52,dataset/photo/Ekran görüntüsü 2026-03-04 115605.png,engine_no,K9KA7D156642,K9KA7D157126,235
+61,52,dataset/photo/Ekran görüntüsü 2026-03-04 115605.png,chassis_no,VF1LB240539627844,VF1LB240539627843,235
+61,52,dataset/photo/Ekran görüntüsü 2026-03-04 115605.png,owner_surname,PROMOSYON URUN IMAL SAN,GIPTA OFIS KIRTASIYE VE PROMOSYON URUN IMAL SAN A.S.,235
+61,52,dataset/photo/Ekran görüntüsü 2026-03-04 115605.png,inspection_date,06/05/2011,05/05/2008,235
+61,52,dataset/photo/Ekran görüntüsü 2026-03-04 115605.png,serial_no,AG NO 119372,AO NO 723572,235
+62,62,dataset/photo/ruhsat-hatasi-nedeniyle-muayeneden-gecememe-magduriyeti-1_768x768.jpg,tax_or_id_no,,10165732982,327
+62,62,dataset/photo/ruhsat-hatasi-nedeniyle-muayeneden-gecememe-magduriyeti-1_768x768.jpg,owner_name,,MECLUN,327
+62,62,dataset/photo/ruhsat-hatasi-nedeniyle-muayeneden-gecememe-magduriyeti-1_768x768.jpg,owner_surname,,ERIN,327
+62,62,dataset/photo/ruhsat-hatasi-nedeniyle-muayeneden-gecememe-magduriyeti-1_768x768.jpg,inspection_date,,04/04/2025,327
+63,63,dataset/photo/ruhsat-seri-no-1-640x453.jpg,plate,48VJ10S,48VJ105,215
+63,63,dataset/photo/ruhsat-seri-no-1-640x453.jpg,vehicle_type,PALIO SOLE 1.4,PALIO SOLE 1.4 FIRE DYNAMIC,215
+63,63,dataset/photo/ruhsat-seri-no-1-640x453.jpg,serial_no,AON 404242,AO NO 404242,215
