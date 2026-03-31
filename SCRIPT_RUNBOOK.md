@@ -15,6 +15,18 @@ conda activate ocrreader
 python -m pip install -r requirements.txt
 ```
 
+Recommended bootstrap on a fresh machine:
+
+```powershell
+python scripts/bootstrap_runtime.py
+```
+
+Preview only:
+
+```powershell
+python scripts/bootstrap_runtime.py --dry-run
+```
+
 ---
 
 ## 1) Main OCR CLI
@@ -56,13 +68,131 @@ python -m ocrreader.cli ^
 Uses the plain `Tesseract` pipeline without `PaddleOCR`.
 
 Notes:
-- `config/ruhsat_schema_paddle_v29.yaml` selects the faster hybrid path.
-- `config/ruhsat_schema_paddle_v29_allfields_glm.yaml` selects the slower `PaddleOCR-VL` path.
+- `config/ruhsat_schema_paddle_v29.yaml` selects the faster hybrid path and now uses `engine: auto`.
+- `config/ruhsat_schema_paddle_v29_allfields_glm.yaml` selects the slower `PaddleOCR-VL` path and now uses `engine: auto` for the page OCR layer.
+- Classic OCR auto engine behavior:
+  - `Windows + CUDA Paddle` -> `paddleocr`
+  - `Windows + non-CUDA GPU + DML provider` -> `onnxruntime`
+  - `macOS + CoreML provider` -> `onnxruntime`
+  - otherwise -> `paddleocr`
 - `config/ruhsat_schema.yaml` selects the simplest fallback path.
 - `--image` is required.
 - `--config` defaults to `config/ruhsat_schema.yaml`.
 - `--output` is optional.
 - `--debug-dir` is optional.
+
+### Warm API service - Windows VPS friendly
+
+Uses one long-lived process, so Paddle stays loaded in memory and later requests avoid cold start.
+
+Recommended GPU config:
+
+```powershell
+python -m ocrreader.api ^
+  --host 0.0.0.0 ^
+  --port 8765 ^
+  --config config/ruhsat_schema_paddle_v29_gpu_lazy.yaml ^
+  --debug-root output/api_debug
+```
+
+Sample health check:
+
+```powershell
+curl.exe http://127.0.0.1:8765/health
+```
+
+Sample OCR request:
+
+```powershell
+curl.exe -X POST ^
+  -F "image=@testdata/WhatsApp Image 2026-03-03 at 18.31.01.jpeg" ^
+  -F "full_output=false" ^
+  -F "save_debug=false" ^
+  http://127.0.0.1:8765/ocr
+```
+
+Helpful endpoints:
+- `GET /health`
+- `GET /metrics`
+- `POST /ocr`
+
+Recommended config choices:
+- `config/ruhsat_schema_paddle_v29_gpu_lazy.yaml` for CUDA/NVIDIA machines
+- `config/ruhsat_schema_paddle_v29_cpu_lazy.yaml` for CPU fallback
+
+Important:
+- `requirements.txt` no longer pins a default Paddle runtime on purpose.
+- Install **either** `paddlepaddle` **or** `paddlepaddle-gpu`, not both.
+
+### Experimental backend migration probes
+
+These commands do **not** switch the main OCR API. They only test whether non-CUDA runtimes are available and how far the migration path can go on the current machine.
+
+Optional install set:
+
+```powershell
+python -m pip install -r requirements.experimental.txt
+```
+
+Probe the migration blockers and available providers:
+
+```powershell
+python -m scripts.probe_backend_migrations --attempt-installs
+```
+
+Run a tiny runtime microbenchmark for `DirectML` and `OpenVINO`:
+
+```powershell
+python -m scripts.benchmark_runtime_providers
+```
+
+Outputs:
+- `output/backend_migration_probe.json`
+- `output/runtime_provider_benchmark.json`
+
+### ONNX + DirectML path
+
+Use this when the deployment target is a Windows machine and you want a non-CUDA GPU path.
+
+Architecture:
+- export ONNX on WSL/Linux
+- run inference on Windows with `onnxruntime-directml`
+
+Probe the exported OCR ONNX models on Windows:
+
+```powershell
+python -m scripts.probe_directml_ocr_models
+```
+
+Profile the integrated ONNX + DirectML OCR pipeline:
+
+```powershell
+python -m scripts.profile_runtime_mode ^
+  --label onnx_directml ^
+  --image "testdata/WhatsApp Image 2026-03-03 at 18.31.01.jpeg" ^
+  --config config/ruhsat_schema_onnx_directml_v29.yaml ^
+  --runs 2 ^
+  --summary-out output/onnx_directml_profile.json
+```
+
+Run the warm API on Windows:
+
+```powershell
+python -m ocrreader.api ^
+  --host 0.0.0.0 ^
+  --port 8766 ^
+  --config config/ruhsat_schema_onnx_directml_v29.yaml ^
+  --debug-root output/api_onnx_debug
+```
+
+Full notes:
+- `docs/onnx_directml_path.md`
+- `output/directml_ocr_model_probe.json`
+- `output/onnx_directml_profile.json`
+- `output/api_onnx_health.json`
+- `output/api_onnx_result_1.json`
+- `output/api_onnx_result_2.json`
+- `output/api_onnx_metrics.json`
 
 ---
 
@@ -130,6 +260,11 @@ python scripts/export_results_columns.py ^
 
 These are local investigation helpers. They now use `testdata/` only.
 
+For non-NVIDIA local deployment planning, see:
+
+- `docs/paddle_vl_non_nvidia_local_runbook.md`
+- `docs/paddle_vl_local_analysis.md`
+
 ### Verify the sample image with integrated VL fallback
 
 ```powershell
@@ -140,6 +275,49 @@ python tests/verify_user_image.py
 
 ```powershell
 python tests/verify_integrated_vl.py
+```
+
+### Profile tuned local PaddleOCR-VL on one image
+
+```powershell
+python tests/profile_paddle_vl.py ^
+  --layout ^
+  --image-block-ocr ^
+  --runtime-profile native_paddle_vl ^
+  --max-side 1600 ^
+  --max-new-tokens 512 ^
+  --output tests/profile_paddle_vl_tuned_layout_1600.txt ^
+  --summary tests/profile_paddle_vl_tuned_layout_1600.json
+```
+
+### Profile PaddleOCR-VL through a local vLLM service
+
+```powershell
+python tests/profile_paddle_vl.py ^
+  --layout ^
+  --image-block-ocr ^
+  --runtime-profile local_vllm_service ^
+  --service-url "http://localhost:8118/v1" ^
+  --service-model-name "PaddlePaddle/PaddleOCR-VL-1.5" ^
+  --max-side 1600 ^
+  --max-new-tokens 512 ^
+  --output tests/profile_paddle_vl_vllm_service.txt ^
+  --summary tests/profile_paddle_vl_vllm_service.json
+```
+
+### Profile PaddleOCR-VL through a local MLX-VLM service
+
+```powershell
+python tests/profile_paddle_vl.py ^
+  --layout ^
+  --image-block-ocr ^
+  --runtime-profile local_mlx_vlm_service ^
+  --service-url "http://localhost:8111/" ^
+  --service-model-name "PaddlePaddle/PaddleOCR-VL-1.5" ^
+  --max-side 1600 ^
+  --max-new-tokens 512 ^
+  --output tests/profile_paddle_vl_mlx_service.txt ^
+  --summary tests/profile_paddle_vl_mlx_service.json
 ```
 
 ### Inspect raw VL output structure
@@ -229,4 +407,5 @@ python -m ocrreader.cli --image "testdata/WhatsApp Image 2026-03-03 at 18.31.01.
 python scripts/anchor_label_probe.py --image "testdata/WhatsApp Image 2026-03-03 at 18.31.01.jpeg" --config config/ruhsat_schema_paddle_v29.yaml
 python tests/batch_verify_user_images.py
 python tests/profile_paddle_vl.py
+python -m ocrreader.api --host 0.0.0.0 --port 8765 --config config/ruhsat_schema_paddle_v29_gpu_lazy.yaml
 ```

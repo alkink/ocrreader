@@ -107,7 +107,17 @@ _SECOND_PASS_MIN_SCORE: dict[str, float] = {
     "first_registration_date": 0.50,
     "registration_date": 0.55,
     "model_year": 0.55,
+    "serial_no": 0.55,
 }
+
+
+_SERIAL_MERGED_RE = re.compile(
+    r"(?:Seri?|Sen|Sec|Sc|Se)[A-Za-z]{0,6}(\d{4,8})",
+    re.IGNORECASE,
+)
+_SERIAL_SUFFIX_RE = re.compile(r"[A-Z]{1,4}(\d{4,8})$")
+_SERIAL_PURE_RE = re.compile(r"^\d{5,8}$")
+_SERIAL_YEAR_RE = re.compile(r"^(?:19|20)\d{2}$")
 
 
 def _vin_char_fix(value: str) -> str:
@@ -214,6 +224,67 @@ def _apply_page_second_pass(
         fields[field_name] = entry
 
 
+def _rescue_serial_no(
+    words: list[OCRWord],
+    doc_shape: tuple[int, int, int],
+    search_region_norm: list[float] | None = None,
+) -> str | None:
+    h, w = doc_shape[:2]
+    if h == 0 or w == 0:
+        return None
+
+    if search_region_norm:
+        rx, ry, rw, rh = search_region_norm
+    else:
+        rx, ry, rw, rh = 0.50, 0.75, 0.48, 0.23
+
+    region_texts: list[str] = []
+    for word in words:
+        cx = (word.bbox.x + word.bbox.w / 2) / w
+        cy = (word.bbox.y + word.bbox.h / 2) / h
+        if rx <= cx <= rx + rw and ry <= cy <= ry + rh:
+            region_texts.append(word.text)
+
+    for text in region_texts:
+        merged = _SERIAL_MERGED_RE.search(text)
+        if merged and len(merged.group(1)) >= 4 and not _SERIAL_YEAR_RE.fullmatch(merged.group(1)):
+            return merged.group(1)
+
+    for text in region_texts:
+        suffix = _SERIAL_SUFFIX_RE.search(text.upper())
+        if suffix and len(suffix.group(1)) >= 4 and not _SERIAL_YEAR_RE.fullmatch(suffix.group(1)):
+            return suffix.group(1)
+
+    for text in region_texts:
+        clean = re.sub(r"[^0-9]", "", text)
+        if _SERIAL_PURE_RE.match(clean) and not _SERIAL_YEAR_RE.fullmatch(clean):
+            return clean
+
+    return None
+
+
+def _apply_serial_rescue(
+    fields: dict[str, dict[str, object]],
+    words: list[OCRWord],
+    doc_shape: tuple[int, int, int],
+) -> None:
+    current = fields.get("serial_no")
+    if not _is_empty_field_entry(current):
+        return
+
+    recovered = _rescue_serial_no(words, doc_shape, [0.52, 0.78, 0.45, 0.2])
+    if not recovered:
+        return
+
+    entry = dict(current) if isinstance(current, dict) else {}
+    entry["value"] = recovered
+    entry["raw"] = recovered
+    entry["method"] = "page_serial_rescue"
+    entry["confidence_score"] = max(60, int(entry.get("confidence_score", 0) or 0))
+    entry["low_confidence"] = False
+    fields["serial_no"] = entry
+
+
 class RuhsatOcrPipeline:
     def __init__(self, config: RuhsatConfig):
         self.config = config
@@ -233,13 +304,27 @@ class RuhsatOcrPipeline:
         anchor_debug_rows: list[dict[str, object]] | None = None,
     ) -> dict[str, object]:
         image = imread_color(image_path)
+        return self.process_image(
+            image,
+            image_label=image_path,
+            debug_dir=debug_dir,
+            anchor_debug_rows=anchor_debug_rows,
+        )
+
+    def process_image(
+        self,
+        image: np.ndarray,
+        image_label: str = "<memory>",
+        debug_dir: str | None = None,
+        anchor_debug_rows: list[dict[str, object]] | None = None,
+    ) -> dict[str, object]:
 
         prep = preprocess_document(image, self.config.pipeline)
         document = prep.normalized_image
 
         words = self.engine.iter_words(document, psm=self.config.ocr.psm, min_conf=0.0)
         if anchor_debug_rows is not None:
-            _collect_anchor_debug_rows(image_path, words, self.config.anchors, anchor_debug_rows)
+            _collect_anchor_debug_rows(image_label, words, self.config.anchors, anchor_debug_rows)
         gray = cv2.cvtColor(document, cv2.COLOR_BGR2GRAY)
         anchors = detect_anchors_hybrid(words, self.config.anchors, gray, self.template_detector)
         rois = resolve_field_rois(document.shape, self.config.fields, anchors)
@@ -247,12 +332,14 @@ class RuhsatOcrPipeline:
             document,
             rois,
             self.config.fields,
+            self.config.ocr,
             self.engine,
             page_words=words,
             anchor_matches=anchors,
             page_regex_fallback_enabled=self.config.pipeline.page_regex_fallback_enabled,
         )
         _apply_page_second_pass(fields, words, document.shape, rois)
+        _apply_serial_rescue(fields, words, document.shape)
         apply_secondary_ocr_fallback(
             document,
             rois,
@@ -266,7 +353,7 @@ class RuhsatOcrPipeline:
         fields = postprocess_fields(fields)
 
         result = {
-            "image": image_path,
+            "image": image_label,
             "pipeline": {
                 "output_width": self.config.pipeline.output_width,
                 "output_height": self.config.pipeline.output_height,

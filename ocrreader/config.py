@@ -36,6 +36,15 @@ class OCRConfig:
     language: str = "tur+eng"
     oem: int = 3
     psm: int = 6
+    crop_engine: str | None = None
+    crop_ocr_mode: str = "always"
+    crop_ocr_variants: tuple[str, ...] = ("preprocessed", "preprocessed_alt", "raw")
+    crop_ocr_skip_margin: int = 0
+    onnx_det_model: str | None = None
+    onnx_rec_model: str | None = None
+    onnx_providers: tuple[str, ...] = ()
+    onnx_det_limit_side_len: int | None = None
+    onnx_rec_batch_size: int | None = None
     paddle_device: str = "gpu"
     paddle_cpu_threads: int = 1
     paddle_enable_mkldnn: bool = False
@@ -48,7 +57,18 @@ class OCRConfig:
     paddle_crop_engine: str | None = None
     paddle_vl_use_layout_detection: bool = True
     paddle_vl_use_ocr_for_image_block: bool = True
+    paddle_vl_runtime_profile: str = "auto"
+    paddle_vl_service_url: str | None = None
+    paddle_vl_service_model_name: str | None = None
+    paddle_vl_service_api_key: str | None = None
+    paddle_vl_service_max_concurrency: int | None = None
     paddle_vl_max_side: int | None = None
+    paddle_vl_min_pixels: int | None = None
+    paddle_vl_max_pixels: int | None = None
+    paddle_vl_max_new_tokens: int | None = 512
+    paddle_vl_use_cache: bool = True
+    paddle_vl_use_queues: bool = True
+    paddle_vl_prompt_label: str | None = None
     glm_fallback_enabled: bool = False
     glm_fallback_fields: tuple[str, ...] = ()
     glm_fallback_min_confidence: int = 10
@@ -146,6 +166,36 @@ def load_config(path: str) -> RuhsatConfig:
         language=str(ocr_raw.get("language", "tur+eng")),
         oem=int(ocr_raw.get("oem", 3)),
         psm=int(ocr_raw.get("psm", 6)),
+        crop_engine=(
+            str(ocr_raw["crop_engine"]).strip().lower()
+            if ocr_raw.get("crop_engine") is not None
+            else None
+        ),
+        crop_ocr_mode=str(ocr_raw.get("crop_ocr_mode", "always")).strip().lower(),
+        crop_ocr_variants=_str_tuple(ocr_raw.get("crop_ocr_variants"), "ocr.crop_ocr_variants")
+        or ("preprocessed", "preprocessed_alt", "raw"),
+        crop_ocr_skip_margin=int(ocr_raw.get("crop_ocr_skip_margin", 0) or 0),
+        onnx_det_model=(
+            str(ocr_raw["onnx_det_model"]).strip()
+            if ocr_raw.get("onnx_det_model") is not None
+            else None
+        ),
+        onnx_rec_model=(
+            str(ocr_raw["onnx_rec_model"]).strip()
+            if ocr_raw.get("onnx_rec_model") is not None
+            else None
+        ),
+        onnx_providers=_str_tuple(ocr_raw.get("onnx_providers"), "ocr.onnx_providers"),
+        onnx_det_limit_side_len=(
+            int(ocr_raw["onnx_det_limit_side_len"])
+            if ocr_raw.get("onnx_det_limit_side_len") is not None
+            else None
+        ),
+        onnx_rec_batch_size=(
+            int(ocr_raw["onnx_rec_batch_size"])
+            if ocr_raw.get("onnx_rec_batch_size") is not None
+            else None
+        ),
         paddle_device=str(ocr_raw.get("paddle_device", "gpu")).strip().lower(),
         paddle_cpu_threads=int(ocr_raw.get("paddle_cpu_threads", 1) or 1),
         paddle_enable_mkldnn=bool(ocr_raw.get("paddle_enable_mkldnn", False)),
@@ -166,7 +216,18 @@ def load_config(path: str) -> RuhsatConfig:
         ),
         paddle_vl_use_layout_detection=bool(ocr_raw.get("paddle_vl_use_layout_detection", True)),
         paddle_vl_use_ocr_for_image_block=bool(ocr_raw.get("paddle_vl_use_ocr_for_image_block", True)),
+        paddle_vl_runtime_profile=str(ocr_raw.get("paddle_vl_runtime_profile", "auto")).strip().lower(),
+        paddle_vl_service_url=(str(ocr_raw.get("paddle_vl_service_url")).strip() if ocr_raw.get("paddle_vl_service_url") is not None else None),
+        paddle_vl_service_model_name=(str(ocr_raw.get("paddle_vl_service_model_name")).strip() if ocr_raw.get("paddle_vl_service_model_name") is not None else None),
+        paddle_vl_service_api_key=(str(ocr_raw.get("paddle_vl_service_api_key")).strip() if ocr_raw.get("paddle_vl_service_api_key") is not None else None),
+        paddle_vl_service_max_concurrency=(int(ocr_raw["paddle_vl_service_max_concurrency"]) if ocr_raw.get("paddle_vl_service_max_concurrency") is not None else None),
         paddle_vl_max_side=(int(ocr_raw["paddle_vl_max_side"]) if ocr_raw.get("paddle_vl_max_side") is not None else None),
+        paddle_vl_min_pixels=(int(ocr_raw["paddle_vl_min_pixels"]) if ocr_raw.get("paddle_vl_min_pixels") is not None else None),
+        paddle_vl_max_pixels=(int(ocr_raw["paddle_vl_max_pixels"]) if ocr_raw.get("paddle_vl_max_pixels") is not None else None),
+        paddle_vl_max_new_tokens=(int(ocr_raw["paddle_vl_max_new_tokens"]) if ocr_raw.get("paddle_vl_max_new_tokens") is not None else 512),
+        paddle_vl_use_cache=bool(ocr_raw.get("paddle_vl_use_cache", True)),
+        paddle_vl_use_queues=bool(ocr_raw.get("paddle_vl_use_queues", True)),
+        paddle_vl_prompt_label=(str(ocr_raw.get("paddle_vl_prompt_label")).strip() if ocr_raw.get("paddle_vl_prompt_label") is not None else None),
         paddle_version=ocr_raw.get("paddle_version"),
         glm_fallback_enabled=bool(ocr_raw.get("glm_fallback_enabled", False)),
         glm_fallback_fields=_str_tuple(ocr_raw.get("glm_fallback_fields"), "ocr.glm_fallback_fields"),

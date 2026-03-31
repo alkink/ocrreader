@@ -24,6 +24,19 @@ def main() -> int:
     parser.add_argument("--image-block-ocr", action="store_true")
     parser.add_argument("--no-image-block-ocr", action="store_true")
     parser.add_argument("--max-side", type=int, default=0)
+    parser.add_argument("--max-new-tokens", type=int, default=512)
+    parser.add_argument("--min-pixels", type=int, default=0)
+    parser.add_argument("--max-pixels", type=int, default=0)
+    parser.add_argument("--use-cache", action="store_true")
+    parser.add_argument("--no-use-cache", action="store_true")
+    parser.add_argument("--use-queues", action="store_true")
+    parser.add_argument("--no-use-queues", action="store_true")
+    parser.add_argument("--prompt-label", default=None)
+    parser.add_argument("--runtime-profile", default="auto")
+    parser.add_argument("--service-url", default=None)
+    parser.add_argument("--service-model-name", default=None)
+    parser.add_argument("--service-api-key", default=None)
+    parser.add_argument("--service-max-concurrency", type=int, default=0)
     parser.add_argument("--output", default="tests/profile_paddle_vl_output.txt")
     parser.add_argument("--summary", default="tests/profile_paddle_vl_summary.json")
     args = parser.parse_args()
@@ -40,13 +53,36 @@ def main() -> int:
     elif args.image_block_ocr:
         use_image_block_ocr = True
 
+    use_cache = True
+    if args.no_use_cache:
+        use_cache = False
+    elif args.use_cache:
+        use_cache = True
+
+    use_queues = True
+    if args.no_use_queues:
+        use_queues = False
+    elif args.use_queues:
+        use_queues = True
+
     config = OCRConfig(
         engine="paddle",
         glm_fallback_enabled=True,
         glm_model="paddle_vl",
         paddle_vl_use_layout_detection=use_layout,
         paddle_vl_use_ocr_for_image_block=use_image_block_ocr,
+        paddle_vl_runtime_profile=(str(args.runtime_profile).strip().lower() or "auto"),
+        paddle_vl_service_url=(str(args.service_url).strip() if args.service_url else None),
+        paddle_vl_service_model_name=(str(args.service_model_name).strip() if args.service_model_name else None),
+        paddle_vl_service_api_key=(str(args.service_api_key).strip() if args.service_api_key else None),
+        paddle_vl_service_max_concurrency=(args.service_max_concurrency if args.service_max_concurrency > 0 else None),
         paddle_vl_max_side=(args.max_side if args.max_side > 0 else None),
+        paddle_vl_max_new_tokens=(args.max_new_tokens if args.max_new_tokens > 0 else None),
+        paddle_vl_min_pixels=(args.min_pixels if args.min_pixels > 0 else None),
+        paddle_vl_max_pixels=(args.max_pixels if args.max_pixels > 0 else None),
+        paddle_vl_use_cache=use_cache,
+        paddle_vl_use_queues=use_queues,
+        paddle_vl_prompt_label=(str(args.prompt_label).strip() if args.prompt_label else None),
     )
 
     engine = create_glm_fallback_engine(config)
@@ -68,7 +104,19 @@ def main() -> int:
         "seconds": dt,
         "layout": use_layout,
         "image_block_ocr": use_image_block_ocr,
+        "runtime_profile": args.runtime_profile,
+        "effective_runtime_profile": getattr(engine, "runtime_profile", None),
+        "effective_runtime_backend": getattr(engine, "runtime_backend", None),
+        "service_url": args.service_url,
+        "service_model_name": args.service_model_name,
+        "service_max_concurrency": args.service_max_concurrency,
         "max_side": args.max_side,
+        "max_new_tokens": args.max_new_tokens,
+        "min_pixels": args.min_pixels,
+        "max_pixels": args.max_pixels,
+        "use_cache": use_cache,
+        "use_queues": use_queues,
+        "prompt_label": args.prompt_label,
         "output": args.output,
     }
     Path(args.summary).write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")

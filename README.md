@@ -52,10 +52,11 @@ ocr:
 ### Fast runtime - `HybridOCREngine`
 
 Uses `PaddleOCR` for full-page word detection and `Tesseract` for per-field crop OCR.
+The default CLI output is now a flat JSON with only final field values.
 
 ```bash
 python -m ocrreader.cli \
-  --image "testdata/WhatsApp Image 2026-03-03 at 18.31.01.jpeg" \
+  --image "testdata/WhatsApp_Image_2026-03-03_at_18.31.01.jpeg" \
   --config "config/ruhsat_schema_paddle_v29.yaml" \
   --output "output/result_fast.json" \
   --debug-dir "output/debug_fast"
@@ -91,6 +92,7 @@ python -m ocrreader.cli \
 - `config/ruhsat_schema_paddle_v29_allfields_glm.yaml` selects the slower `PaddleOCR-VL` path.
 - `config/ruhsat_schema.yaml` is the simplest fallback path.
 - `PaddleOCR`-based commands require the matching `paddleocr` and `paddlepaddle` packages to be installed in the active environment.
+- Use `--full-output` only when you want ROI, anchor, and pipeline metadata in the JSON output.
 
 ## Useful helper scripts
 

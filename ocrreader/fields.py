@@ -7,7 +7,7 @@ import cv2
 import numpy as np
 
 from .anchors import AnchorMatch
-from .config import FieldConfig
+from .config import FieldConfig, OCRConfig
 from .field_value_locator import locate_value_from_anchor, locate_value_from_roi_words
 from .ocr_engine import OCREngine, TextReadEngine
 from .preprocess import crop
@@ -1057,10 +1057,81 @@ def _extract_structured_candidates_from_page_text(
     return out
 
 
+def _pick_best_candidate(
+    field_name: str,
+    cfg: FieldConfig,
+    candidates: list[dict[str, object]],
+) -> tuple[dict[str, object] | None, str]:
+    if cfg.force_method:
+        forced = [c for c in candidates if str(c["method"]) == cfg.force_method]
+        non_forced = [c for c in candidates if str(c["method"]) != cfg.force_method]
+        ordered = sorted(forced, key=lambda c: (int(c["score"]), int(c["priority"])), reverse=True) + sorted(
+            non_forced,
+            key=lambda c: (int(c["score"]), int(c["priority"])),
+            reverse=True,
+        )
+    else:
+        ordered = sorted(candidates, key=lambda c: (int(c["score"]), int(c["priority"])), reverse=True)
+
+    best: dict[str, object] | None = None
+    cleaned = ""
+
+    for cand in ordered:
+        cand_cleaned = _post_field_filters(field_name, str(cand["cleaned"]))
+        if not cand_cleaned:
+            continue
+        if cfg.confidence_threshold > 0 and int(cand["score"]) < cfg.confidence_threshold:
+            continue
+        best = cand
+        cleaned = cand_cleaned
+        break
+
+    if best is None and cfg.confidence_threshold <= 0:
+        for cand in ordered:
+            cand_cleaned = _post_field_filters(field_name, str(cand["cleaned"]))
+            if cand_cleaned:
+                best = cand
+                cleaned = cand_cleaned
+                break
+
+    return best, cleaned
+
+
+def _should_run_crop_ocr(
+    field_name: str,
+    cfg: FieldConfig,
+    ocr_cfg: OCRConfig,
+    best_non_ocr: dict[str, object] | None,
+    cleaned_non_ocr: str,
+) -> bool:
+    mode = str(ocr_cfg.crop_ocr_mode or "always").strip().lower()
+    if mode == "disabled":
+        return False
+    if mode == "always":
+        return True
+
+    if not cleaned_non_ocr or best_non_ocr is None:
+        return True
+
+    score = int(best_non_ocr.get("score", 0) or 0)
+    threshold = int(cfg.confidence_threshold or 0)
+    margin = max(0, int(ocr_cfg.crop_ocr_skip_margin or 0))
+
+    # Keep OCR fallback for a few fragile text-heavy fields when page candidates
+    # barely pass the threshold.
+    if field_name in {"owner_name", "owner_surname", "brand"} and score < threshold + max(2, margin):
+        return True
+
+    if threshold > 0:
+        return score < (threshold + margin)
+    return False
+
+
 def extract_fields(
     document: np.ndarray,
     rois: dict[str, Rect],
     field_configs: dict[str, FieldConfig],
+    ocr_config: OCRConfig,
     engine: OCREngine,
     page_words: list[object] | None = None,
     anchor_matches: dict[str, AnchorMatch] | None = None,
@@ -1147,84 +1218,61 @@ def extract_fields(
                     }
                 )
 
-        raw_t = engine.read_text(prepared, psm=cfg.psm, whitelist=cfg.whitelist)
-        raw_t = collapse_spaces(raw_t)
-        cleaned_t = cleanup_text(raw_t, cfg.cleanup)
-        cleaned_t = _post_cleanup(cleaned_t, cfg)
-        candidates.append(
-            {
-                "raw": raw_t,
-                "cleaned": cleaned_t,
-                "score": _score_cleaned(cleaned_t, cfg.cleanup),
-                "bbox": roi,
-                "method": "roi_tesseract_preprocessed",
-                "priority": 2,
-            }
-        )
+        best, cleaned = _pick_best_candidate(field_name, cfg, candidates)
 
-        prepared_alt = _preprocess_field_crop_alt(patch)
-        raw_t_alt = engine.read_text(prepared_alt, psm=cfg.psm, whitelist=cfg.whitelist)
-        raw_t_alt = collapse_spaces(raw_t_alt)
-        cleaned_t_alt = cleanup_text(raw_t_alt, cfg.cleanup)
-        cleaned_t_alt = _post_cleanup(cleaned_t_alt, cfg)
-        candidates.append(
-            {
-                "raw": raw_t_alt,
-                "cleaned": cleaned_t_alt,
-                "score": _score_cleaned(cleaned_t_alt, cfg.cleanup),
-                "bbox": roi,
-                "method": "roi_tesseract_preprocessed_alt",
-                "priority": 2,
-            }
-        )
+        if _should_run_crop_ocr(field_name, cfg, ocr_config, best, cleaned):
+            variants = {str(v).strip().lower() for v in ocr_config.crop_ocr_variants}
 
-        raw_t2 = engine.read_text(patch, psm=cfg.psm, whitelist=cfg.whitelist)
-        raw_t2 = collapse_spaces(raw_t2)
-        cleaned_t2 = cleanup_text(raw_t2, cfg.cleanup)
-        cleaned_t2 = _post_cleanup(cleaned_t2, cfg)
-        candidates.append(
-            {
-                "raw": raw_t2,
-                "cleaned": cleaned_t2,
-                "score": _score_cleaned(cleaned_t2, cfg.cleanup),
-                "bbox": roi,
-                "method": "roi_tesseract_raw",
-                "priority": 2,
-            }
-        )
+            if "preprocessed" in variants:
+                raw_t = engine.read_text(prepared, psm=cfg.psm, whitelist=cfg.whitelist)
+                raw_t = collapse_spaces(raw_t)
+                cleaned_t = cleanup_text(raw_t, cfg.cleanup)
+                cleaned_t = _post_cleanup(cleaned_t, cfg)
+                candidates.append(
+                    {
+                        "raw": raw_t,
+                        "cleaned": cleaned_t,
+                        "score": _score_cleaned(cleaned_t, cfg.cleanup),
+                        "bbox": roi,
+                        "method": "roi_tesseract_preprocessed",
+                        "priority": 2,
+                    }
+                )
 
-        if cfg.force_method:
-            forced = [c for c in candidates if str(c["method"]) == cfg.force_method]
-            non_forced = [c for c in candidates if str(c["method"]) != cfg.force_method]
-            ordered = sorted(forced, key=lambda c: (int(c["score"]), int(c["priority"])), reverse=True) + sorted(
-                non_forced,
-                key=lambda c: (int(c["score"]), int(c["priority"])),
-                reverse=True,
-            )
-        else:
-            ordered = sorted(candidates, key=lambda c: (int(c["score"]), int(c["priority"])), reverse=True)
+            if "preprocessed_alt" in variants:
+                prepared_alt = _preprocess_field_crop_alt(patch)
+                raw_t_alt = engine.read_text(prepared_alt, psm=cfg.psm, whitelist=cfg.whitelist)
+                raw_t_alt = collapse_spaces(raw_t_alt)
+                cleaned_t_alt = cleanup_text(raw_t_alt, cfg.cleanup)
+                cleaned_t_alt = _post_cleanup(cleaned_t_alt, cfg)
+                candidates.append(
+                    {
+                        "raw": raw_t_alt,
+                        "cleaned": cleaned_t_alt,
+                        "score": _score_cleaned(cleaned_t_alt, cfg.cleanup),
+                        "bbox": roi,
+                        "method": "roi_tesseract_preprocessed_alt",
+                        "priority": 2,
+                    }
+                )
 
-        best: dict[str, object] | None = None
-        cleaned = ""
+            if "raw" in variants:
+                raw_t2 = engine.read_text(patch, psm=cfg.psm, whitelist=cfg.whitelist)
+                raw_t2 = collapse_spaces(raw_t2)
+                cleaned_t2 = cleanup_text(raw_t2, cfg.cleanup)
+                cleaned_t2 = _post_cleanup(cleaned_t2, cfg)
+                candidates.append(
+                    {
+                        "raw": raw_t2,
+                        "cleaned": cleaned_t2,
+                        "score": _score_cleaned(cleaned_t2, cfg.cleanup),
+                        "bbox": roi,
+                        "method": "roi_tesseract_raw",
+                        "priority": 2,
+                    }
+                )
 
-        for cand in ordered:
-            cand_cleaned = _post_field_filters(field_name, str(cand["cleaned"]))
-            if not cand_cleaned:
-                continue
-            if cfg.confidence_threshold > 0 and int(cand["score"]) < cfg.confidence_threshold:
-                continue
-            best = cand
-            cleaned = cand_cleaned
-            break
-
-        if best is None and cfg.confidence_threshold <= 0:
-            # fallback only when thresholding is disabled; in high-precision mode we abstain.
-            for cand in ordered:
-                cand_cleaned = _post_field_filters(field_name, str(cand["cleaned"]))
-                if cand_cleaned:
-                    best = cand
-                    cleaned = cand_cleaned
-                    break
+            best, cleaned = _pick_best_candidate(field_name, cfg, candidates)
 
         if best is None:
             best = {

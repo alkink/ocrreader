@@ -13,7 +13,7 @@ ocr:
   language: tur+eng
   oem: 3
   psm: 6
-  engine: paddleocr
+  engine: auto
   paddle_version: PP-OCRv5
   paddle_device: gpu
   paddle_cpu_threads: 1
@@ -30,6 +30,18 @@ ocr:
   glm_api_key: null
   glm_api_url: null
   glm_model: paddle_vl
+  paddle_vl_runtime_profile: auto
+  paddle_vl_service_url: null
+  paddle_vl_service_model_name: null
+  paddle_vl_service_api_key: null
+  paddle_vl_service_max_concurrency: null
+  paddle_vl_use_layout_detection: true
+  paddle_vl_use_ocr_for_image_block: true
+  paddle_vl_max_side: 1600
+  paddle_vl_max_new_tokens: 512
+  paddle_vl_use_cache: true
+  paddle_vl_use_queues: true
+  paddle_vl_prompt_label: ocr
   glm_mode: selfhosted
   glm_timeout: 120
   glm_enable_layout: false

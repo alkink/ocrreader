@@ -1,0 +1,5 @@
+# Optional backend-migration experiments.
+# Keep these out of the default runtime path so the main Paddle deploy stays lean.
+onnx>=1.20
+onnxruntime-directml>=1.24
+openvino>=2026.0

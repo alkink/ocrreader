@@ -6,6 +6,14 @@ import cv2
 import numpy as np
 
 
+def imdecode_color(data: bytes) -> np.ndarray:
+    raw = np.frombuffer(data, dtype=np.uint8)
+    image = cv2.imdecode(raw, cv2.IMREAD_COLOR)
+    if image is None:
+        raise FileNotFoundError("Unable to decode image bytes")
+    return image
+
+
 def imread_color(path: str) -> np.ndarray:
     raw = np.fromfile(path, dtype=np.uint8)
     image = cv2.imdecode(raw, cv2.IMREAD_COLOR)

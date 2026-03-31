@@ -3,11 +3,14 @@ numpy>=1.26.0
 opencv-python>=4.8.0
 PyYAML>=6.0.1
 pytesseract>=0.3.10
+fastapi>=0.116.0,<1
+uvicorn>=0.35.0,<1
+python-multipart>=0.0.20,<1
 
 # OCR backends
-# For CUDA installs, replace `paddlepaddle` below with the matching
-# `paddlepaddle-gpu` wheel for your OS/CUDA runtime.
-paddlepaddle>=3.3.0
+# Install exactly one Paddle runtime separately:
+# - CPU: `python -m pip install paddlepaddle>=3.3.0`
+# - CUDA GPU: install the matching `paddlepaddle-gpu` wheel for your driver/runtime
 paddleocr[doc-parser]>=3.4.0,<3.5
 transformers>=4.52.0,<5
 

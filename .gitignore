@@ -4,9 +4,22 @@ __pycache__/
 .pytest_cache/
 .mypy_cache/
 .ruff_cache/
+.idea/
+.vscode/
+.env
+.env.*
+*.code-workspace
+*.local
 .venv/
 venv/
 .wsl-glm-venv/
+pip-wheel-metadata/
+build/
+dist/
+*.egg-info/
+.coverage
+htmlcov/
+vendor/**/.git/
 
 # OCR outputs and debug overlays
 output/
@@ -24,6 +37,7 @@ dataset/
 # Local task/session dumps
 roo_task_*.md
 roo_task_*.txt
+notes.md
 
 # OS noise
 .DS_Store

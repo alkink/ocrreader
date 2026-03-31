@@ -13,6 +13,8 @@ _DATE_RE = re.compile(r"\b(\d{1,2})\s*[./-]\s*(\d{1,2})\s*[./-]\s*(\d{2,4})\b")
 _YEAR_RE = re.compile(r"\b(19[5-9]\d|20[0-3]\d)\b")
 _TAX_RE = re.compile(r"\b\d{10,11}\b")
 _SERIAL_RE = re.compile(r"\b\d{4,7}\b")
+_SERIAL_MERGED_RE = re.compile(r"(?:SERI|SEN|SEC|SC|SE)?[A-Z]{0,8}(\d{4,8})$", re.IGNORECASE)
+_SERIAL_YEAR_RE = re.compile(r"^(?:19|20)\d{2}$")
 
 
 _REGIONS: dict[str, tuple[float, float, float, float]] = {
@@ -236,6 +238,8 @@ def _extract_serial(words: list[object], doc_w: int, doc_h: int) -> list[PageCan
             val = m.group(0)
             if len(val) < 4 or len(val) > 7:
                 continue
+            if _SERIAL_YEAR_RE.fullmatch(val):
+                continue
 
             cx, cy = _center(box)
             score = 0.48
@@ -244,6 +248,16 @@ def _extract_serial(words: list[object], doc_w: int, doc_h: int) -> list[PageCan
             score += _label_bonus(cx, cy, labels, doc_w, doc_h)
 
             _append(val, _text(w), box, score, "page_second_pass_serial")
+
+        merged = _SERIAL_MERGED_RE.search(nw)
+        if merged:
+            val = merged.group(1)
+            if 4 <= len(val) <= 7 and not _SERIAL_YEAR_RE.fullmatch(val):
+                cx, cy = _center(box)
+                score = 0.50 + _label_bonus(cx, cy, labels, doc_w, doc_h)
+                if len(val) == 6:
+                    score += 0.16
+                _append(val, _text(w), box, score, "page_second_pass_serial_merged")
 
     # Label-less spatial fallback for lower-right serial zone.
     # Intended for motorcycle-like layouts where serial label OCR is frequently missed.
@@ -258,7 +272,15 @@ def _extract_serial(words: list[object], doc_w: int, doc_h: int) -> list[PageCan
             val = m.group(0)
             if len(val) < 4 or len(val) > 7:
                 continue
+            if _SERIAL_YEAR_RE.fullmatch(val):
+                continue
             _append(val, _text(w), box, 0.42, "page_second_pass_serial_region")
+
+        merged = _SERIAL_MERGED_RE.search(nw)
+        if merged:
+            val = merged.group(1)
+            if 4 <= len(val) <= 7 and not _SERIAL_YEAR_RE.fullmatch(val):
+                _append(val, _text(w), box, 0.46, "page_second_pass_serial_region_merged")
 
     return out
 

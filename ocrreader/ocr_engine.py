@@ -1,9 +1,13 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, replace
+import logging
 import os
 from pathlib import Path
+import platform
 import re
+import shutil
+import subprocess
 import sys
 import tempfile
 from typing import Any, Protocol
@@ -130,6 +134,123 @@ def _prefer_vendored_glmocr_source() -> None:
     vendor_str = str(vendor_root)
     if vendor_str not in sys.path:
         sys.path.insert(0, vendor_str)
+
+
+def _read_command_output(args: list[str]) -> str:
+    try:
+        proc = subprocess.run(
+            args,
+            capture_output=True,
+            text=True,
+            encoding="utf-8",
+            errors="ignore",
+            timeout=6,
+            check=False,
+        )
+    except Exception:
+        return ""
+    chunks = [str(proc.stdout or "").strip(), str(proc.stderr or "").strip()]
+    return "\n".join(chunk for chunk in chunks if chunk).strip()
+
+
+def _detect_gpu_inventory_text() -> str:
+    system_name = platform.system().strip().lower()
+    outputs: list[str] = []
+    if system_name == "windows":
+        outputs.append(
+            _read_command_output(
+                [
+                    "powershell",
+                    "-NoProfile",
+                    "-Command",
+                    "(Get-CimInstance Win32_VideoController | Select-Object -ExpandProperty Name) -join \"`n\"",
+                ]
+            )
+        )
+        outputs.append(_read_command_output(["wmic", "path", "win32_videocontroller", "get", "name"]))
+    elif system_name == "linux":
+        if shutil.which("lspci"):
+            outputs.append(_read_command_output(["lspci"]))
+        if shutil.which("sycl-ls"):
+            outputs.append(_read_command_output(["sycl-ls"]))
+        if shutil.which("rocminfo"):
+            outputs.append(_read_command_output(["rocminfo"]))
+    return "\n".join(part for part in outputs if part).lower()
+
+
+def _paddle_cuda_available() -> bool:
+    try:
+        import paddle  # type: ignore
+
+        return bool(paddle.device.is_compiled_with_cuda())
+    except Exception:
+        return False
+
+
+def _available_onnx_providers() -> set[str]:
+    try:
+        import onnxruntime as ort  # type: ignore
+
+        return set(ort.get_available_providers())
+    except Exception:
+        return set()
+
+
+def _resolve_auto_ocr_engine_name() -> str:
+    system_name = platform.system().strip().lower()
+    machine = platform.machine().strip().lower()
+    providers = _available_onnx_providers()
+    gpu_inventory = _detect_gpu_inventory_text()
+
+    if system_name == "darwin":
+        if "CoreMLExecutionProvider" in providers:
+            logging.getLogger("ocrreader").info(
+                "Auto-selected OCR engine: onnxruntime (CoreMLExecutionProvider)"
+            )
+            return "onnxruntime"
+        logging.getLogger("ocrreader").info(
+            "Auto-selected OCR engine: paddleocr (macOS fallback)"
+        )
+        return "paddleocr"
+
+    if system_name == "windows":
+        if _paddle_cuda_available():
+            logging.getLogger("ocrreader").info(
+                "Auto-selected OCR engine: paddleocr (CUDA-enabled Paddle detected)"
+            )
+            return "paddleocr"
+        if "DmlExecutionProvider" in providers and any(
+            token in gpu_inventory for token in ("nvidia", "amd", "radeon", "intel", "arc")
+        ):
+            logging.getLogger("ocrreader").info(
+                "Auto-selected OCR engine: onnxruntime (DmlExecutionProvider)"
+            )
+            return "onnxruntime"
+        logging.getLogger("ocrreader").info(
+            "Auto-selected OCR engine: paddleocr (Windows CPU fallback)"
+        )
+        return "paddleocr"
+
+    if system_name == "linux":
+        if _paddle_cuda_available():
+            logging.getLogger("ocrreader").info(
+                "Auto-selected OCR engine: paddleocr (Linux CUDA-enabled Paddle detected)"
+            )
+            return "paddleocr"
+        if machine in {"arm64", "aarch64"} and "CoreMLExecutionProvider" in providers:
+            logging.getLogger("ocrreader").info(
+                "Auto-selected OCR engine: onnxruntime (CoreMLExecutionProvider)"
+            )
+            return "onnxruntime"
+        logging.getLogger("ocrreader").info(
+            "Auto-selected OCR engine: paddleocr (Linux CPU/native fallback)"
+        )
+        return "paddleocr"
+
+    logging.getLogger("ocrreader").info(
+        "Auto-selected OCR engine: paddleocr (default fallback)"
+    )
+    return "paddleocr"
 
 
 class TesseractEngine:
@@ -537,6 +658,343 @@ class PaddleOCREngine:
         return "\n".join(text_lines)
 
 
+class OnnxDirectMlEngine:
+    """ONNX Runtime OCR engine using exported PP-OCRv4 detection/recognition models."""
+
+    def __init__(self, config: OCRConfig):
+        self.config = config
+        try:
+            import onnxruntime as ort  # type: ignore
+        except Exception as exc:  # pragma: no cover - optional dependency
+            raise RuntimeError(
+                "ONNX OCR engine selected but onnxruntime is missing. "
+                "Install with: pip install onnxruntime-directml onnx"
+            ) from exc
+
+        try:
+            from paddlex.inference.models.common import ToBatch, ToCHWImage  # type: ignore
+            from paddlex.inference.models.text_detection.processors import (  # type: ignore
+                DBPostProcess,
+                DetResizeForTest,
+                NormalizeImage,
+            )
+            from paddlex.inference.models.text_recognition.processors import (  # type: ignore
+                CTCLabelDecode,
+                OCRReisizeNormImg,
+                ToBatch as RecToBatch,
+            )
+            from paddlex.inference.pipelines.components.common.cal_ocr_word_box import (  # type: ignore
+                cal_ocr_word_box,
+            )
+            from paddlex.inference.pipelines.components.common.crop_image_regions import (  # type: ignore
+                CropByPolys,
+            )
+            from paddlex.inference.pipelines.components.common.sort_boxes import (  # type: ignore
+                SortQuadBoxes,
+            )
+        except Exception as exc:  # pragma: no cover - optional dependency
+            raise RuntimeError(
+                "ONNX OCR engine selected but PaddleX OCR processors are missing. "
+                "Install with: pip install paddlex paddleocr opencv-contrib-python pyclipper shapely"
+            ) from exc
+
+        self._ort = ort
+        self._det_to_batch_cls = ToBatch
+        self._det_to_chw_cls = ToCHWImage
+        self._det_resize_cls = DetResizeForTest
+        self._det_normalize_cls = NormalizeImage
+        self._det_post_cls = DBPostProcess
+        self._rec_resize_cls = OCRReisizeNormImg
+        self._rec_post_cls = CTCLabelDecode
+        self._rec_to_batch_cls = RecToBatch
+        self._crop_by_polys = CropByPolys(det_box_type="quad")
+        self._sort_boxes = SortQuadBoxes()
+        self._cal_ocr_word_box = cal_ocr_word_box
+
+        self._project_root = Path(__file__).resolve().parents[1]
+        self._det_model_path = self._resolve_model_path(
+            getattr(config, "onnx_det_model", None),
+            self._project_root / "models" / "onnx" / "ppocrv4_mobile_det" / "inference.onnx",
+        )
+        self._rec_model_path = self._resolve_model_path(
+            getattr(config, "onnx_rec_model", None),
+            self._project_root / "models" / "onnx" / "en_ppocrv4_mobile_rec" / "inference.onnx",
+        )
+        self._det_cfg = self._load_infer_cfg(self._det_model_path)
+        self._rec_cfg = self._load_infer_cfg(self._rec_model_path)
+
+        self._providers = self._resolve_providers()
+        self._det_session = self._ort.InferenceSession(str(self._det_model_path), providers=self._providers)
+        self._rec_session = self._ort.InferenceSession(str(self._rec_model_path), providers=self._providers)
+        self._det_input_name = self._det_session.get_inputs()[0].name
+        self._rec_input_name = self._rec_session.get_inputs()[0].name
+
+        self._build_det_ops()
+        self._build_rec_ops()
+
+    @staticmethod
+    def _resolve_model_path(config_value: str | None, default_path: Path) -> Path:
+        path = Path(config_value) if config_value else default_path
+        if not path.is_absolute():
+            path = (Path.cwd() / path).resolve()
+        if not path.exists():
+            raise RuntimeError(f"Required ONNX model was not found: {path}")
+        return path
+
+    @staticmethod
+    def _load_infer_cfg(model_path: Path) -> dict[str, object]:
+        cfg_path = model_path.with_suffix(".yml")
+        if not cfg_path.exists():
+            raise RuntimeError(f"Required inference config was not found: {cfg_path}")
+        data = yaml.safe_load(cfg_path.read_text(encoding="utf-8")) or {}
+        if not isinstance(data, dict):
+            raise RuntimeError(f"Invalid inference config format: {cfg_path}")
+        return data
+
+    def _resolve_providers(self) -> list[str]:
+        preferred = list(getattr(self.config, "onnx_providers", ()) or ())
+        if not preferred:
+            system_name = platform.system().strip().lower()
+            if system_name == "darwin":
+                preferred = ["CoreMLExecutionProvider", "CPUExecutionProvider"]
+            elif system_name == "windows":
+                preferred = ["DmlExecutionProvider", "CPUExecutionProvider"]
+            else:
+                preferred = ["CPUExecutionProvider"]
+        available = set(self._ort.get_available_providers())
+        resolved = [name for name in preferred if name in available]
+        if not resolved:
+            resolved = ["CPUExecutionProvider"]
+        return resolved
+
+    @staticmethod
+    def _cfg_op_list(cfg: dict[str, object], section: str) -> list[dict[str, object]]:
+        data = cfg.get(section, {})
+        if not isinstance(data, dict):
+            return []
+        ops = data.get("transform_ops", [])
+        return ops if isinstance(ops, list) else []
+
+    @staticmethod
+    def _find_op(ops: list[dict[str, object]], key: str) -> dict[str, object]:
+        for item in ops:
+            if isinstance(item, dict) and key in item:
+                val = item.get(key)
+                return val if isinstance(val, dict) else {}
+        return {}
+
+    def _build_det_ops(self) -> None:
+        det_ops = self._cfg_op_list(self._det_cfg, "PreProcess")
+        det_resize_cfg = self._find_op(det_ops, "DetResizeForTest")
+        det_norm_cfg = self._find_op(det_ops, "NormalizeImage")
+        det_post_cfg = self._det_cfg.get("PostProcess", {})
+        if not isinstance(det_post_cfg, dict):
+            det_post_cfg = {}
+
+        det_limit_side_len = (
+            getattr(self.config, "onnx_det_limit_side_len", None)
+            or getattr(self.config, "paddle_text_det_limit_side_len", None)
+            or det_resize_cfg.get("resize_long")
+            or det_resize_cfg.get("limit_side_len")
+            or 960
+        )
+        self._det_resize = self._det_resize_cls(
+            limit_side_len=int(det_limit_side_len),
+            limit_type="max",
+        )
+        self._det_normalize = self._det_normalize_cls(
+            mean=det_norm_cfg.get("mean", [0.485, 0.456, 0.406]),
+            std=det_norm_cfg.get("std", [0.229, 0.224, 0.225]),
+            scale=det_norm_cfg.get("scale", "1./255."),
+            order=det_norm_cfg.get("order", "hwc"),
+        )
+        self._det_to_chw = self._det_to_chw_cls()
+        self._det_to_batch = self._det_to_batch_cls()
+        self._det_post = self._det_post_cls(
+            thresh=float(det_post_cfg.get("thresh", 0.3)),
+            box_thresh=float(det_post_cfg.get("box_thresh", 0.6)),
+            unclip_ratio=float(det_post_cfg.get("unclip_ratio", 1.5)),
+            max_candidates=int(det_post_cfg.get("max_candidates", 1000)),
+            use_dilation=bool(det_post_cfg.get("use_dilation", False)),
+            score_mode=str(det_post_cfg.get("score_mode", "fast")),
+            box_type=str(det_post_cfg.get("box_type", "quad")),
+        )
+
+    def _build_rec_ops(self) -> None:
+        rec_ops = self._cfg_op_list(self._rec_cfg, "PreProcess")
+        rec_resize_cfg = self._find_op(rec_ops, "RecResizeImg")
+        rec_image_shape = rec_resize_cfg.get("image_shape", [3, 48, 320])
+        if not isinstance(rec_image_shape, list) or len(rec_image_shape) < 3:
+            rec_image_shape = [3, 48, 320]
+
+        rec_post_cfg = self._rec_cfg.get("PostProcess", {})
+        if not isinstance(rec_post_cfg, dict):
+            rec_post_cfg = {}
+        character_dict = rec_post_cfg.get("character_dict", [])
+        if not isinstance(character_dict, list):
+            character_dict = []
+
+        self._rec_resize = self._rec_resize_cls(rec_image_shape=rec_image_shape[:3])
+        self._rec_to_batch = self._rec_to_batch_cls()
+        self._rec_post = self._rec_post_cls(character_list=character_dict)
+        self._rec_batch_size = max(
+            1,
+            int(
+                getattr(self.config, "onnx_rec_batch_size", None)
+                or getattr(self.config, "paddle_text_recognition_batch_size", None)
+                or 8
+            ),
+        )
+        self._rec_image_shape = rec_image_shape[:3]
+
+    @staticmethod
+    def _to_bgr(image: np.ndarray) -> np.ndarray:
+        return PaddleOCREngine._to_bgr(image)
+
+    def _detect_boxes(self, image: np.ndarray) -> list[np.ndarray]:
+        bgr = self._to_bgr(image)
+        det_imgs, det_shapes = self._det_resize([bgr])
+        det_imgs = self._det_normalize(det_imgs)
+        det_imgs = self._det_to_chw(det_imgs)
+        det_batch = self._det_to_batch(det_imgs)
+        det_preds = self._det_session.run(None, {self._det_input_name: det_batch[0]})
+        dt_polys, _ = self._det_post(det_preds, det_shapes)
+        if not dt_polys or len(dt_polys[0]) == 0:
+            return []
+        return list(self._sort_boxes(dt_polys[0]))
+
+    def _recognize(self, images: list[np.ndarray], return_word_box: bool) -> tuple[list[object], list[float]]:
+        if not images:
+            return [], []
+
+        all_texts: list[object] = []
+        all_scores: list[float] = []
+        img_c, img_h, img_w = self._rec_image_shape
+        _ = img_c
+        default_max_wh_ratio = img_w / max(1, img_h)
+
+        for start in range(0, len(images), self._rec_batch_size):
+            chunk = [self._to_bgr(img) for img in images[start : start + self._rec_batch_size] if img.size]
+            if not chunk:
+                continue
+
+            rec_imgs = self._rec_resize(chunk)
+            rec_batch = self._rec_to_batch(rec_imgs)
+            rec_preds = self._rec_session.run(None, {self._rec_input_name: rec_batch[0]})
+
+            wh_ratio_list: list[float] = []
+            max_wh_ratio = default_max_wh_ratio
+            for img in chunk:
+                h, w = img.shape[:2]
+                wh_ratio = w / float(max(1, h))
+                max_wh_ratio = max(max_wh_ratio, wh_ratio)
+                wh_ratio_list.append(wh_ratio)
+
+            texts, scores = self._rec_post(
+                rec_preds,
+                return_word_box=return_word_box,
+                wh_ratio_list=wh_ratio_list,
+                max_wh_ratio=max_wh_ratio,
+            )
+            all_texts.extend(texts)
+            all_scores.extend(float(score) for score in scores)
+
+        return all_texts, all_scores
+
+    def iter_words(self, image: np.ndarray, psm: int | None = None, min_conf: float = 20.0) -> list[OCRWord]:
+        _ = psm
+        bgr = self._to_bgr(image)
+        dt_polys = self._detect_boxes(bgr)
+        if not dt_polys:
+            return []
+
+        crops = self._crop_by_polys(bgr, dt_polys)
+        rec_texts, rec_scores = self._recognize(crops, return_word_box=True)
+
+        words: list[OCRWord] = []
+        line_idx = 0
+        for poly, rec_payload, rec_score in zip(dt_polys, rec_texts, rec_scores):
+            text = ""
+            rec_word_info = None
+            if isinstance(rec_payload, tuple) and len(rec_payload) == 2:
+                text = str(rec_payload[0] or "").strip()
+                rec_word_info = rec_payload[1]
+            else:
+                text = str(rec_payload or "").strip()
+
+            if not text:
+                continue
+
+            conf = rec_score * 100.0 if rec_score <= 1.0 else rec_score
+            if conf < min_conf:
+                continue
+
+            line_idx += 1
+
+            used_word_boxes = False
+            if rec_word_info is not None:
+                try:
+                    word_texts, word_boxes = self._cal_ocr_word_box(text, np.array(poly), rec_word_info)
+                    for tok_raw, box_raw in zip(word_texts, word_boxes):
+                        tok = str(tok_raw or "").strip()
+                        if not tok:
+                            continue
+                        tok_bbox = PaddleOCREngine._bbox_from_points(box_raw)
+                        if tok_bbox is None:
+                            continue
+                        words.append(
+                            OCRWord(
+                                text=tok,
+                                conf=conf,
+                                bbox=tok_bbox,
+                                block_num=1,
+                                par_num=1,
+                                line_num=line_idx,
+                            )
+                        )
+                        used_word_boxes = True
+                except Exception:
+                    used_word_boxes = False
+
+            if used_word_boxes:
+                continue
+
+            line_bbox = PaddleOCREngine._bbox_from_points(poly)
+            if line_bbox is None:
+                continue
+            for token, tok_bbox in PaddleOCREngine._split_line_to_word_boxes(text, line_bbox):
+                words.append(
+                    OCRWord(
+                        text=token,
+                        conf=conf,
+                        bbox=tok_bbox,
+                        block_num=1,
+                        par_num=1,
+                        line_num=line_idx,
+                    )
+                )
+        return words
+
+    def read_text(
+        self,
+        image: np.ndarray,
+        psm: int | None = None,
+        whitelist: str | None = None,
+    ) -> str:
+        _ = psm
+        texts, _ = self._recognize([self._to_bgr(image)], return_word_box=False)
+        if not texts:
+            return ""
+        text = texts[0]
+        if isinstance(text, tuple):
+            text = text[0]
+        out = str(text or "").strip()
+        if whitelist:
+            allowed = set(str(whitelist))
+            out = "".join(ch for ch in out if ch in allowed)
+        return out
+
+
 def _collect_glm_text_parts(payload: object) -> list[str]:
     if payload is None:
         return []
@@ -762,8 +1220,40 @@ class PaddleOCRVLEngine:
     Requires: pip install "paddleocr[doc-parser]" transformers
     """
 
+    _VL_PROFILE_ALIASES = {
+        "auto": "auto",
+        "native": "native_paddle_vl",
+        "native_paddle": "native_paddle_vl",
+        "native_paddle_vl": "native_paddle_vl",
+        "amd_native": "native_paddle_vl",
+        "local_vllm": "local_vllm_service",
+        "local_vllm_service": "local_vllm_service",
+        "vllm": "local_vllm_service",
+        "vllm_server": "local_vllm_service",
+        "local_mlx": "local_mlx_vlm_service",
+        "local_mlx_service": "local_mlx_vlm_service",
+        "local_mlx_vlm_service": "local_mlx_vlm_service",
+        "mlx": "local_mlx_vlm_service",
+        "mlx_vlm": "local_mlx_vlm_service",
+        "mlx_vlm_server": "local_mlx_vlm_service",
+    }
+    _VL_PROFILE_BACKENDS = {
+        "native_paddle_vl": None,
+        "local_vllm_service": "vllm-server",
+        "local_mlx_vlm_service": "mlx-vlm-server",
+    }
+    _VL_PROFILE_DEFAULT_URLS = {
+        "local_vllm_service": "http://localhost:8118/v1",
+        "local_mlx_vlm_service": "http://localhost:8111/",
+    }
+    _VL_PROFILE_DEFAULT_MODELS = {
+        "local_vllm_service": "PaddlePaddle/PaddleOCR-VL-1.5",
+        "local_mlx_vlm_service": "PaddlePaddle/PaddleOCR-VL-1.5",
+    }
+
     def __init__(self, config: OCRConfig):
         self.config = config
+        os.environ.setdefault("PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK", "True")
         # DLL configuration is run at module load, but we re-verify for VL specifically.
         if os.name == "nt":
             _configure_windows_cuda_dlls()
@@ -776,12 +1266,85 @@ class PaddleOCRVLEngine:
                 "Install with: pip install 'paddleocr[doc-parser]' transformers"
             ) from exc
 
-        self._vl = PaddleOCRVL(
-            use_doc_orientation_classify=False,
-            use_doc_unwarping=False,
-            use_layout_detection=bool(getattr(config, "paddle_vl_use_layout_detection", True)),
-            use_ocr_for_image_block=bool(getattr(config, "paddle_vl_use_ocr_for_image_block", True)),
+        runtime_profile = self._resolve_runtime_profile(
+            str(getattr(config, "paddle_vl_runtime_profile", "auto") or "auto")
         )
+        self.runtime_profile = runtime_profile
+
+        init_kwargs: dict[str, object] = {
+            "use_doc_orientation_classify": False,
+            "use_doc_unwarping": False,
+            "use_layout_detection": bool(getattr(config, "paddle_vl_use_layout_detection", True)),
+            "use_ocr_for_image_block": bool(getattr(config, "paddle_vl_use_ocr_for_image_block", True)),
+        }
+        backend_name = self._VL_PROFILE_BACKENDS.get(runtime_profile)
+        if backend_name:
+            init_kwargs["vl_rec_backend"] = backend_name
+            init_kwargs["vl_rec_server_url"] = self._resolve_service_url(runtime_profile)
+            model_name = self._resolve_service_model_name(runtime_profile)
+            if model_name:
+                init_kwargs["vl_rec_api_model_name"] = model_name
+            api_key = getattr(config, "paddle_vl_service_api_key", None)
+            if api_key:
+                init_kwargs["vl_rec_api_key"] = str(api_key)
+            max_concurrency = getattr(config, "paddle_vl_service_max_concurrency", None)
+            if max_concurrency is not None:
+                init_kwargs["vl_rec_max_concurrency"] = max(1, int(max_concurrency))
+
+        self.runtime_backend = str(backend_name or "paddle")
+        self._vl = PaddleOCRVL(**init_kwargs)
+
+    @classmethod
+    def _read_command_output(cls, args: list[str]) -> str:
+        return _read_command_output(args)
+
+    @classmethod
+    def _detect_gpu_inventory_text(cls) -> str:
+        return _detect_gpu_inventory_text()
+
+    @classmethod
+    def _resolve_runtime_profile(cls, raw_profile: str) -> str:
+        profile = str(raw_profile or "auto").strip().lower()
+        canonical = cls._VL_PROFILE_ALIASES.get(profile, profile)
+        if canonical != "auto":
+            return canonical
+
+        system_name = platform.system().strip().lower()
+        if system_name == "darwin":
+            logging.getLogger("ocrreader").info(
+                "Auto-selected PaddleOCR-VL runtime profile: local_mlx_vlm_service (macOS detected)"
+            )
+            return "local_mlx_vlm_service"
+
+        gpu_inventory = cls._detect_gpu_inventory_text()
+        if "intel" in gpu_inventory and "arc" in gpu_inventory:
+            logging.getLogger("ocrreader").info(
+                "Auto-selected PaddleOCR-VL runtime profile: local_vllm_service (Intel Arc detected)"
+            )
+            return "local_vllm_service"
+
+        logging.getLogger("ocrreader").info(
+            "Auto-selected PaddleOCR-VL runtime profile: native_paddle_vl"
+        )
+        return "native_paddle_vl"
+
+    def _resolve_service_url(self, runtime_profile: str) -> str:
+        explicit = getattr(self.config, "paddle_vl_service_url", None)
+        if explicit:
+            return str(explicit).strip()
+        default_url = self._VL_PROFILE_DEFAULT_URLS.get(runtime_profile)
+        if default_url:
+            return default_url
+        raise RuntimeError(
+            f"PaddleOCR-VL runtime profile '{runtime_profile}' requires a service URL, "
+            "but no paddle_vl_service_url was configured."
+        )
+
+    def _resolve_service_model_name(self, runtime_profile: str) -> str | None:
+        explicit = getattr(self.config, "paddle_vl_service_model_name", None)
+        if explicit:
+            return str(explicit).strip()
+        return self._VL_PROFILE_DEFAULT_MODELS.get(runtime_profile)
 
     def _to_rgb(self, image: np.ndarray) -> np.ndarray:
         if len(image.shape) == 2:
@@ -1018,7 +1581,26 @@ class PaddleOCRVLEngine:
         try:
             # For PaddleOCR-VL-1.5, prompt_label can be used for VLM tasks.
             # If prompt is None, it uses the default OCR behavior.
-            res = self._vl.predict(rgb, prompt_label=prompt)
+            vl_kwargs: dict[str, object] = {
+                "use_layout_detection": bool(getattr(self.config, "paddle_vl_use_layout_detection", True)),
+                "use_ocr_for_image_block": bool(getattr(self.config, "paddle_vl_use_ocr_for_image_block", True)),
+                "use_queues": bool(getattr(self.config, "paddle_vl_use_queues", True)),
+                "use_cache": bool(getattr(self.config, "paddle_vl_use_cache", True)),
+            }
+            prompt_label = prompt or getattr(self.config, "paddle_vl_prompt_label", None)
+            if prompt_label:
+                vl_kwargs["prompt_label"] = prompt_label
+            max_new_tokens = getattr(self.config, "paddle_vl_max_new_tokens", None)
+            if max_new_tokens is not None:
+                vl_kwargs["max_new_tokens"] = max(1, int(max_new_tokens))
+            min_pixels = getattr(self.config, "paddle_vl_min_pixels", None)
+            if min_pixels is not None:
+                vl_kwargs["min_pixels"] = max(1, int(min_pixels))
+            max_pixels = getattr(self.config, "paddle_vl_max_pixels", None)
+            if max_pixels is not None:
+                vl_kwargs["max_pixels"] = max(1, int(max_pixels))
+
+            res = self._vl.predict(rgb, **vl_kwargs)
             if not res or len(res) == 0:
                 return ""
 
@@ -1030,6 +1612,12 @@ class PaddleOCRVLEngine:
             if val:
                 return self._maybe_format_ruhsat_summary(val) or val
 
+            markdown_payload = getattr(first_res, "markdown", None)
+            if isinstance(markdown_payload, dict):
+                markdown_text = str(markdown_payload.get("markdown_texts") or "").strip()
+                if markdown_text:
+                    return self._maybe_format_ruhsat_summary(markdown_text) or markdown_text
+
             # 2. Try to_dict() access
             if hasattr(first_res, "to_dict"):
                 data = first_res.to_dict()
@@ -1038,6 +1626,11 @@ class PaddleOCRVLEngine:
                     return self._maybe_format_ruhsat_summary(val) or val
                 
                 # Check for other potential keys
+                markdown_blob = data.get("markdown")
+                if isinstance(markdown_blob, dict):
+                    markdown_text = str(markdown_blob.get("markdown_texts") or "").strip()
+                    if markdown_text:
+                        return self._maybe_format_ruhsat_summary(markdown_text) or markdown_text
                 markdown = str(data.get("markdown") or "").strip()
                 if markdown:
                     return self._maybe_format_ruhsat_summary(markdown) or markdown
@@ -1056,7 +1649,6 @@ class PaddleOCRVLEngine:
             raw = str(first_res).strip()
             return self._maybe_format_ruhsat_summary(raw) or raw
         except Exception as exc:
-            import logging
             logging.getLogger("ocrreader").warning("PaddleOCRVL inference failed: %s", exc)
             return ""
 
@@ -1085,16 +1677,16 @@ class HybridOCREngine:
     5-10× while retaining PaddleOCR's superior page-level detection quality.
     """
 
-    def __init__(self, paddle_engine: PaddleOCREngine, tesseract_engine: TesseractEngine):
-        self._paddle = paddle_engine
+    def __init__(self, primary_engine: OCREngine, tesseract_engine: TesseractEngine):
+        self._primary = primary_engine
         self._tess = tesseract_engine
         # Expose config from the primary (Paddle) engine so callers that read
         # engine.config still see paddle settings.
-        self.config = paddle_engine.config
+        self.config = primary_engine.config
 
     def iter_words(self, image, psm=None, min_conf: float = 20.0):
         """Full-page OCR via PaddleOCR GPU."""
-        return self._paddle.iter_words(image, psm=psm, min_conf=min_conf)
+        return self._primary.iter_words(image, psm=psm, min_conf=min_conf)
 
     def read_text(self, image, psm=None, whitelist=None) -> str:
         """Per-crop OCR via Tesseract (fast, in-process, no GPU overhead)."""
@@ -1103,13 +1695,25 @@ class HybridOCREngine:
 
 def create_ocr_engine(config: OCRConfig) -> "OCREngine | HybridOCREngine":
     engine_name = str(getattr(config, "engine", "tesseract") or "tesseract").strip().lower()
+    crop_eng_name = str(
+        getattr(config, "crop_engine", None)
+        or getattr(config, "paddle_crop_engine", None)
+        or ""
+    ).strip().lower()
+    if engine_name in {"auto", "smart", "default"}:
+        engine_name = _resolve_auto_ocr_engine_name()
     if engine_name in {"tesseract", "tess"}:
         return TesseractEngine(config)
     if engine_name in {"paddle", "paddleocr"}:
         paddle_eng = PaddleOCREngine(config)
-        crop_eng_name = str(getattr(config, "paddle_crop_engine", None) or "").strip().lower()
         if crop_eng_name in {"tesseract", "tess"}:
             tess_eng = TesseractEngine(config)
             return HybridOCREngine(paddle_eng, tess_eng)
         return paddle_eng
-    raise ValueError(f"Unknown OCR engine: {engine_name}. Supported: tesseract, paddle")
+    if engine_name in {"onnx", "onnxruntime", "onnx_directml", "directml", "onnx_coreml", "coreml"}:
+        onnx_eng = OnnxDirectMlEngine(config)
+        if crop_eng_name in {"tesseract", "tess"}:
+            tess_eng = TesseractEngine(config)
+            return HybridOCREngine(onnx_eng, tess_eng)
+        return onnx_eng
+    raise ValueError(f"Unknown OCR engine: {engine_name}. Supported: auto, tesseract, paddle, onnx_directml, onnx_coreml")

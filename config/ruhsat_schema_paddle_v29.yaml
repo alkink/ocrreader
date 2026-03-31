@@ -13,7 +13,7 @@ ocr:
   language: tur+eng
   oem: 3
   psm: 6
-  engine: paddleocr
+  engine: auto
   paddle_version: PP-OCRv5
   paddle_device: gpu
   paddle_cpu_threads: 1

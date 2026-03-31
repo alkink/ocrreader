@@ -1,20 +1,38 @@
 import os
-import glob
+import site
+from pathlib import Path
 
-# Explicitly add all known nvidia/cuda DLL directories
-_nvidia_bin_dirs = [
-    r"C:\Users\alkin\miniconda3\Lib\site-packages\nvidia\cu13\bin",
-    r"C:\Users\alkin\miniconda3\Lib\site-packages\nvidia\cudnn\bin",
-    r"C:\Users\alkin\AppData\Roaming\Python\Python313\site-packages\nvidia\cublas\bin",
-    r"C:\Users\alkin\AppData\Roaming\Python\Python313\site-packages\nvidia\cuda_runtime\bin",
-    r"C:\Users\alkin\AppData\Roaming\Python\Python313\site-packages\nvidia\cudnn\bin",
-]
-for _p in _nvidia_bin_dirs:
-    if os.path.isdir(_p):
-        os.add_dll_directory(_p)
-        print(f"[DLL] Added: {_p}")
-    else:
-        print(f"[DLL] NOT found: {_p}")
+
+def _iter_site_packages() -> list[Path]:
+    roots: list[Path] = []
+    for raw in site.getsitepackages():
+        p = Path(raw)
+        if p.exists():
+            roots.append(p)
+    user_site = site.getusersitepackages()
+    if user_site:
+        p = Path(user_site)
+        if p.exists():
+            roots.append(p)
+    return roots
+
+
+def _add_nvidia_dll_dirs() -> None:
+    if os.name != "nt" or not hasattr(os, "add_dll_directory"):
+        return
+
+    seen: set[str] = set()
+    for site_root in _iter_site_packages():
+        for bin_dir in site_root.glob("nvidia/*/bin"):
+            resolved = str(bin_dir.resolve())
+            if resolved in seen or not bin_dir.is_dir():
+                continue
+            seen.add(resolved)
+            os.add_dll_directory(resolved)
+            print(f"[DLL] Added: {resolved}")
+
+
+_add_nvidia_dll_dirs()
 
 os.environ["PADDLE_PDX_DISABLE_MODEL_SOURCE_CHECK"] = "True"
 

@@ -9,12 +9,31 @@ from .config import load_config
 from .pipeline import RuhsatOcrPipeline
 
 
+def _fields_only_result(result: dict[str, object]) -> dict[str, object]:
+    fields = result.get("fields", {})
+    if not isinstance(fields, dict):
+        return {}
+
+    flat: dict[str, object] = {}
+    for field_name, entry in fields.items():
+        if isinstance(entry, dict):
+            flat[field_name] = entry.get("value")
+        else:
+            flat[field_name] = entry
+    return flat
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(description="Ruhsat OCR extractor")
     parser.add_argument("--image", required=True, help="Input image path")
     parser.add_argument("--config", default="config/ruhsat_schema.yaml", help="YAML config path")
     parser.add_argument("--output", default=None, help="Output JSON path")
     parser.add_argument("--debug-dir", default=None, help="Optional debug image folder")
+    parser.add_argument(
+        "--full-output",
+        action="store_true",
+        help="Write the full pipeline JSON instead of only extracted field values",
+    )
     return parser
 
 
@@ -25,7 +44,8 @@ def main(argv: list[str] | None = None) -> int:
     pipeline = RuhsatOcrPipeline(config)
     result = pipeline.process_path(args.image, debug_dir=args.debug_dir)
 
-    text = json.dumps(result, ensure_ascii=False, indent=2)
+    payload = result if args.full_output else _fields_only_result(result)
+    text = json.dumps(payload, ensure_ascii=False, indent=2)
     if args.output:
         out = Path(args.output)
         out.parent.mkdir(parents=True, exist_ok=True)
