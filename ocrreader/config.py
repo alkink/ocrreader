@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from dataclasses import dataclass
 from pathlib import Path
+import shutil
 
 import yaml
 
@@ -135,6 +136,25 @@ def _tuple4(value: object, name: str) -> tuple[float, float, float, float] | Non
     return tuple(float(v) for v in value)
 
 
+def _resolve_tesseract_executable(value: object) -> str | None:
+    if value is None:
+        return shutil.which("tesseract")
+    candidate = str(value).strip()
+    if not candidate:
+        return shutil.which("tesseract")
+
+    candidate_path = Path(candidate)
+    if candidate_path.exists():
+        return str(candidate_path)
+
+    resolved = shutil.which(candidate)
+    if resolved:
+        return resolved
+
+    fallback = shutil.which("tesseract")
+    return fallback or candidate
+
+
 def load_config(path: str) -> RuhsatConfig:
     cfg_path = Path(path)
     raw = yaml.safe_load(cfg_path.read_text(encoding="utf-8")) or {}
@@ -162,7 +182,7 @@ def load_config(path: str) -> RuhsatConfig:
     ocr_raw = raw.get("ocr", {})
     ocr = OCRConfig(
         engine=str(ocr_raw.get("engine", "tesseract")).strip().lower(),
-        executable=ocr_raw.get("executable"),
+        executable=_resolve_tesseract_executable(ocr_raw.get("executable")),
         language=str(ocr_raw.get("language", "tur+eng")),
         oem=int(ocr_raw.get("oem", 3)),
         psm=int(ocr_raw.get("psm", 6)),
