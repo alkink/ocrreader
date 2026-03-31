@@ -21,6 +21,12 @@ Recommended bootstrap on a fresh machine:
 python scripts/bootstrap_runtime.py
 ```
 
+If you also want the optional vendored `GLM-OCR` fallback and you are on Python `3.10+`:
+
+```powershell
+python scripts/bootstrap_runtime.py --with-glmocr
+```
+
 Preview only:
 
 ```powershell

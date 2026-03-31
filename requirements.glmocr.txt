@@ -1,0 +1,3 @@
+# Optional vendored GLM OCR package.
+# Requires Python 3.10+.
+./vendor/GLM-OCR

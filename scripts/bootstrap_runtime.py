@@ -59,9 +59,10 @@ def command_exists(name: str) -> bool:
     return shutil.which(name) is not None
 
 
-def build_plan() -> dict[str, object]:
+def build_plan(include_glmocr: bool = False) -> dict[str, object]:
     system_name = platform.system().strip().lower()
     machine = platform.machine().strip().lower()
+    python_version = f"{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}"
     gpu_inventory = detect_gpu_inventory_text()
     has_nvidia = command_exists("nvidia-smi") or "nvidia" in gpu_inventory or "geforce" in gpu_inventory
     has_intel_arc = "intel" in gpu_inventory and "arc" in gpu_inventory
@@ -110,9 +111,20 @@ def build_plan() -> dict[str, object]:
     if not command_exists("tesseract"):
         manual_steps.append("Install Tesseract separately if you will use crop OCR or classic configs that rely on it.")
 
+    if include_glmocr:
+        if sys.version_info >= (3, 10):
+            requirement_files.append(REPO_ROOT / "requirements.glmocr.txt")
+            notes.append("Optional GLM-OCR fallback will be installed from vendored source.")
+        else:
+            manual_steps.append("GLM-OCR optional install was skipped because it requires Python 3.10+. Use Python 3.10/3.11/3.12 if you need that fallback.")
+
+    if sys.version_info < (3, 10):
+        notes.append("This interpreter is older than Python 3.10. Base OCR may still install, but optional GLM-OCR fallback is unavailable on this interpreter.")
+
     return {
         "system": system_name,
         "machine": machine,
+        "python_version": python_version,
         "gpu_inventory": gpu_inventory.strip(),
         "has_nvidia": has_nvidia,
         "has_intel_arc": has_intel_arc,
@@ -134,14 +146,16 @@ def install_requirements(requirement_files: list[Path]) -> None:
 def main() -> int:
     parser = argparse.ArgumentParser(description="Bootstrap this repo for the current machine.")
     parser.add_argument("--dry-run", action="store_true", help="Only print the install plan.")
+    parser.add_argument("--with-glmocr", action="store_true", help="Also install the optional vendored GLM-OCR package (requires Python 3.10+).")
     args = parser.parse_args()
 
-    plan = build_plan()
+    plan = build_plan(include_glmocr=args.with_glmocr)
     requirement_files: list[Path] = list(plan["requirement_files"])  # type: ignore[assignment]
 
     print("Bootstrap plan")
     print(f"- system: {plan['system']}")
     print(f"- machine: {plan['machine']}")
+    print(f"- python: {plan['python_version']}")
     print(f"- classic auto engine: {plan['classic_auto']}")
     print(f"- vl auto runtime: {plan['vl_auto']}")
     print("- requirement files:")
