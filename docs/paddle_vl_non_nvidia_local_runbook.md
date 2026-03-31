@@ -57,6 +57,12 @@ Profile meanings:
 - `local_vllm_service`: local PaddleOCR-VL client using a local `vLLM` server URL
 - `local_mlx_vlm_service`: local PaddleOCR-VL client using a local `MLX-VLM` server URL
 
+For Apple Silicon in this repo, `scripts/bootstrap_runtime.py` now bootstraps a separate `.venv-mlx` environment automatically when a Python `3.10+` interpreter is available. You can then launch the local server with:
+
+```bash
+python scripts/start_mlx_vl_server.py --port 8111
+```
+
 ### If you need strict local-only and no local API/service
 
 Choose AMD GPU, not Intel Arc.

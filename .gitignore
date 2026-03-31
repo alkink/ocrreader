@@ -11,6 +11,7 @@ __pycache__/
 *.code-workspace
 *.local
 .venv/
+.venv-mlx/
 venv/
 .wsl-glm-venv/
 pip-wheel-metadata/

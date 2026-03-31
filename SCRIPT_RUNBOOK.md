@@ -21,6 +21,8 @@ Recommended bootstrap on a fresh machine:
 python scripts/bootstrap_runtime.py
 ```
 
+On Apple Silicon Macs this now also bootstraps a separate `.venv-mlx` environment for the local `PaddleOCR-VL` MLX server when a suitable Python `3.10+` interpreter is available.
+
 If you also want the optional vendored `GLM-OCR` fallback and you are on Python `3.10+`:
 
 ```powershell
@@ -312,6 +314,12 @@ python tests/profile_paddle_vl.py ^
 ```
 
 ### Profile PaddleOCR-VL through a local MLX-VLM service
+
+Start the local MLX server first:
+
+```bash
+python scripts/start_mlx_vl_server.py --port 8111
+```
 
 ```powershell
 python tests/profile_paddle_vl.py ^
