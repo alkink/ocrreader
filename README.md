@@ -1,118 +1,148 @@
-# OCR Reader - Ruhsat Extraction
+# OCR Reader
 
-This repository is focused on OCR extraction for Turkish vehicle registration documents.
+Bu repo, ruhsat gorsellerinden alan cikarmak icin hazirlanmis OCR pipeline'idir.
 
-The old dataset generation, annotation, training, and benchmark pipeline has been removed. The repo now keeps only the runtime OCR pipeline and a small set of local helper scripts.
+Amac:
+- kur
+- komutu calistir
+- sonucu al
 
-## Why fixed ROI fails
+Detayli benchmark, backend ve platform notlari icin:
+- `SCRIPT_RUNBOOK.md`
+- `docs/`
 
-Even if the document border is aligned correctly, printer drift can move the printed values inside the card. Because of that, fixed crop coordinates alone are not reliable.
+## En Kisa Kurulum
 
-The current pipeline uses:
+Repo kokunde:
 
-1. document normalization,
-2. anchor detection,
-3. dynamic ROI resolution,
-4. field-level OCR,
-5. text cleanup and JSON output.
+Windows:
 
-## Project structure
+```powershell
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+python -m pip install --upgrade pip
+python scripts/bootstrap_runtime.py
+```
 
-- `ocrreader/config.py` - typed config loader
-- `ocrreader/preprocess.py` - document detection, warp, deskew
-- `ocrreader/ocr_engine.py` - OCR backends and optional GLM/VL fallback
-- `ocrreader/anchors.py` - anchor matching
-- `ocrreader/fields.py` - ROI resolution and field extraction
-- `ocrreader/pipeline.py` - end-to-end OCR pipeline
-- `ocrreader/cli.py` - command-line entrypoint
-- `config/` - extraction schemas
-- `testdata/` - local sample images for runtime checks
-
-## Installation
+macOS / Linux:
 
 ```bash
-python -m venv .venv
-.venv\Scripts\activate
-pip install -r requirements.txt
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+python scripts/bootstrap_runtime.py
 ```
 
-For Windows + GPU + `PaddleOCR-VL` setup, use `INSTALL_WINDOWS_GPU.md`.
+Not:
+- klasik OCR icin `Tesseract` kurulu olmali
+- Windows + NVIDIA kullaniyorsan ayrica uygun `paddlepaddle-gpu` kurulumunu yap
+- bunun icin `INSTALL_WINDOWS_GPU.md` dosyasina bak
 
-Tesseract must still be installed separately if your config uses it for crop-level OCR.
+## Tak Calistir
 
-If Tesseract is not in `PATH`, set:
+### 1. Klasik OCR
 
-```yaml
-ocr:
-  executable: C:/Program Files/Tesseract-OCR/tesseract.exe
-```
-
-## Usage
-
-### Fast runtime - `HybridOCREngine`
-
-Uses `PaddleOCR` for full-page word detection and `Tesseract` for per-field crop OCR.
-The default CLI output is now a flat JSON with only final field values.
+Cogu kullanici icin dogru baslangic budur.
 
 ```bash
 python -m ocrreader.cli \
-  --image "testdata/WhatsApp_Image_2026-03-03_at_18.31.01.jpeg" \
+  --image "testdata/WhatsApp Image 2026-03-03 at 18.31.01.jpeg" \
   --config "config/ruhsat_schema_paddle_v29.yaml" \
-  --output "output/result_fast.json" \
-  --debug-dir "output/debug_fast"
+  --output "output/result.json"
 ```
 
-### Slow runtime - `PaddleOCR-VL`
+Sonuc:
+- `output/result.json`
 
-Uses the experimental `PaddleOCR-VL` fallback path. This is the slower full-page VL route.
+### 2. Hangi backend secildigini de gormek istersen
 
 ```bash
+python -m ocrreader.cli \
+  --image "testdata/WhatsApp Image 2026-03-03 at 18.31.01.jpeg" \
+  --config "config/ruhsat_schema_paddle_v29.yaml" \
+  --runtime-info \
+  --output "output/result_runtime.json"
+```
+
+Bu cikti icinde sunlar gorunur:
+- hangi engine secildi
+- ONNX mi Paddle mi kullanildi
+- provider ne oldu
+- GPU inventory ne goruldu
+
+## Apple Silicon Icin VL
+
+Apple Silicon'da `PaddleOCR-VL` kullanacaksan once local MLX server ac:
+
+Terminal 1:
+
+```bash
+source .venv/bin/activate
+python scripts/start_mlx_vl_server.py --port 8111
+```
+
+Terminal 2:
+
+```bash
+source .venv/bin/activate
 python -m ocrreader.cli \
   --image "testdata/WhatsApp Image 2026-03-03 at 18.31.01.jpeg" \
   --config "config/ruhsat_schema_paddle_v29_allfields_glm.yaml" \
-  --output "output/result_vl.json" \
-  --debug-dir "output/debug_vl"
+  --output "output/result_vl.json"
 ```
 
-### Basic runtime - `Tesseract`
-
-Uses the plain `Tesseract` pipeline without `PaddleOCR`.
+Runtime bilgisini de gormek istersen:
 
 ```bash
+source .venv/bin/activate
 python -m ocrreader.cli \
   --image "testdata/WhatsApp Image 2026-03-03 at 18.31.01.jpeg" \
-  --config "config/ruhsat_schema.yaml" \
-  --output "output/result_tesseract.json" \
-  --debug-dir "output/debug_tesseract"
+  --config "config/ruhsat_schema_paddle_v29_allfields_glm.yaml" \
+  --runtime-info \
+  --output "output/result_vl_runtime.json"
 ```
 
-### Runtime notes
+## Dogrudan Hiz Olcmek Icin
 
-- `config/ruhsat_schema_paddle_v29.yaml` selects the faster hybrid path.
-- `config/ruhsat_schema_paddle_v29_allfields_glm.yaml` selects the slower `PaddleOCR-VL` path.
-- `config/ruhsat_schema.yaml` is the simplest fallback path.
-- `PaddleOCR`-based commands require the matching `paddleocr` and `paddlepaddle` packages to be installed in the active environment.
-- Use `--full-output` only when you want ROI, anchor, and pipeline metadata in the JSON output.
+Klasik OCR:
 
-## Useful helper scripts
+```bash
+python scripts/profile_runtime_mode.py \
+  --label auto \
+  --image "testdata/WhatsApp Image 2026-03-03 at 18.31.01.jpeg" \
+  --config "config/ruhsat_schema_paddle_v29.yaml" \
+  --runs 2 \
+  --summary-out "output/auto_profile.json"
+```
 
-- `scripts/anchor_label_probe.py` - inspect anchor hits on one image
-- `scripts/collect_anchor_templates.py` - build anchor templates from local probe outputs
-- `scripts/debug_call_trace.py` - trace the runtime OCR flow on one image
-- `scripts/export_results_columns.py` - flatten OCR JSON files into CSV
-- `tests/batch_verify_user_images.py` - run the VL helper on all local `testdata/` images
-- `tests/profile_paddle_vl.py` - time PaddleOCR-VL on one image
-- `tests/profile_paddle_vl_roi.py` - time PaddleOCR-VL on selected ROI crops
+VL:
 
-## Tuning checklist
+```bash
+python tests/profile_paddle_vl.py \
+  --image "testdata/WhatsApp_Image_2026-03-03_at_18.31.01.jpeg" \
+  --layout \
+  --image-block-ocr \
+  --runtime-profile local_mlx_vlm_service \
+  --service-url "http://localhost:8111/" \
+  --service-model-name "PaddlePaddle/PaddleOCR-VL-1.5" \
+  --max-side 1600 \
+  --max-new-tokens 512 \
+  --output "tests/profile_paddle_vl.txt" \
+  --summary "tests/profile_paddle_vl.json"
+```
 
-1. Adjust `value_margin_norm` for weak fields.
-2. Switch `value_from_anchor` between `right` and `below` where needed.
-3. Use `force_method` only when the default field selection is unstable.
-4. Increase normalized output size if field crops are still too small.
+## En Kisa Ozet
 
-## Notes
+Cogu kisi icin sadece bunlar yeterli:
 
-- The schema remains configurable so field positions can be tuned without changing pipeline code.
-- `testdata/` is the only built-in image workspace kept in the repo.
-- For command examples, use `SCRIPT_RUNBOOK.md`.
+```bash
+python scripts/bootstrap_runtime.py
+python -m ocrreader.cli --image "testdata/WhatsApp Image 2026-03-03 at 18.31.01.jpeg" --config "config/ruhsat_schema_paddle_v29.yaml" --output "output/result.json"
+```
+
+Apple Silicon + VL icin:
+
+```bash
+python scripts/start_mlx_vl_server.py --port 8111
+python -m ocrreader.cli --image "testdata/WhatsApp Image 2026-03-03 at 18.31.01.jpeg" --config "config/ruhsat_schema_paddle_v29_allfields_glm.yaml" --output "output/result_vl.json"
+```

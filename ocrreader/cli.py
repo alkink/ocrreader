@@ -34,6 +34,11 @@ def build_parser() -> argparse.ArgumentParser:
         action="store_true",
         help="Write the full pipeline JSON instead of only extracted field values",
     )
+    parser.add_argument(
+        "--runtime-info",
+        action="store_true",
+        help="Include runtime/backend/provider metadata alongside the extracted fields",
+    )
     return parser
 
 
@@ -44,7 +49,16 @@ def main(argv: list[str] | None = None) -> int:
     pipeline = RuhsatOcrPipeline(config)
     result = pipeline.process_path(args.image, debug_dir=args.debug_dir)
 
-    payload = result if args.full_output else _fields_only_result(result)
+    if args.full_output:
+        payload = result
+    elif args.runtime_info:
+        payload = {
+            "fields": _fields_only_result(result),
+            "runtime": result.get("runtime", {}),
+            "pipeline": result.get("pipeline", {}),
+        }
+    else:
+        payload = _fields_only_result(result)
     text = json.dumps(payload, ensure_ascii=False, indent=2)
     if args.output:
         out = Path(args.output)
@@ -58,4 +72,3 @@ def main(argv: list[str] | None = None) -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main(sys.argv[1:]))
-

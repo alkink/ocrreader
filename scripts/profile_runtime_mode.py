@@ -86,6 +86,7 @@ def main() -> int:
         "image": args.image,
         "init_seconds": round(init_seconds, 3),
         "env": _env_info(),
+        "runtime": (final_result or {}).get("runtime", {}) if isinstance(final_result, dict) else {},
         "runs": run_summaries,
     }
 

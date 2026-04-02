@@ -256,6 +256,7 @@ def _resolve_auto_ocr_engine_name() -> str:
 class TesseractEngine:
     def __init__(self, config: OCRConfig):
         self.config = config
+        self.runtime_backend = "tesseract"
         if config.executable:
             pytesseract.pytesseract.tesseract_cmd = config.executable
 
@@ -330,6 +331,7 @@ class TesseractEngine:
 class PaddleOCREngine:
     def __init__(self, config: OCRConfig):
         self.config = config
+        self.runtime_backend = "paddleocr"
         try:
             from paddleocr import PaddleOCR  # type: ignore
         except Exception as exc:  # pragma: no cover - optional dependency
@@ -340,6 +342,7 @@ class PaddleOCREngine:
 
         self._paddle_cls = PaddleOCR
         self._lang = self._resolve_lang(config.language)
+        self.runtime_device = self._resolve_paddle_device()
 
         # PP-OCRv5 can hard-crash the Python process on some Windows CPU setups
         # (native access violation from backend runtime). Prefer v4 by default for
@@ -387,7 +390,7 @@ class PaddleOCREngine:
     def _build_engine(self, ocr_version: str):
         # PaddleOCR 3.x common args are parsed by paddleocr._common_args.
         # Keep orientation helpers off and expose runtime knobs from config.
-        device = self._resolve_paddle_device()
+        device = self.runtime_device
         kwargs: dict[str, object] = {
             "lang": self._lang,
             "ocr_version": ocr_version,
@@ -663,6 +666,7 @@ class OnnxDirectMlEngine:
 
     def __init__(self, config: OCRConfig):
         self.config = config
+        self.runtime_backend = "onnxruntime"
         try:
             import onnxruntime as ort  # type: ignore
         except Exception as exc:  # pragma: no cover - optional dependency
@@ -724,6 +728,7 @@ class OnnxDirectMlEngine:
         self._rec_cfg = self._load_infer_cfg(self._rec_model_path)
 
         self._providers = self._resolve_providers()
+        self.runtime_providers = list(self._providers)
         self._det_session = self._ort.InferenceSession(str(self._det_model_path), providers=self._providers)
         self._rec_session = self._ort.InferenceSession(str(self._rec_model_path), providers=self._providers)
         self._det_input_name = self._det_session.get_inputs()[0].name
@@ -1292,6 +1297,8 @@ class PaddleOCRVLEngine:
                 init_kwargs["vl_rec_max_concurrency"] = max(1, int(max_concurrency))
 
         self.runtime_backend = str(backend_name or "paddle")
+        self.service_url = str(init_kwargs.get("vl_rec_server_url") or "")
+        self.service_model_name = str(init_kwargs.get("vl_rec_api_model_name") or "")
         self._vl = PaddleOCRVL(**init_kwargs)
 
     @classmethod
@@ -1691,6 +1698,76 @@ class HybridOCREngine:
     def read_text(self, image, psm=None, whitelist=None) -> str:
         """Per-crop OCR via Tesseract (fast, in-process, no GPU overhead)."""
         return self._tess.read_text(image, psm=psm, whitelist=whitelist)
+
+
+def collect_runtime_metadata(
+    config: OCRConfig,
+    engine: object | None = None,
+    glm_engine: object | None = None,
+) -> dict[str, object]:
+    info: dict[str, object] = {
+        "platform": platform.platform(),
+        "python": platform.python_version(),
+        "gpu_inventory": [line.strip() for line in _detect_gpu_inventory_text().splitlines() if line.strip()],
+        "ocr_engine_requested": str(getattr(config, "engine", "")),
+        "paddle_device_requested": str(getattr(config, "paddle_device", "")),
+    }
+
+    runtime_engine = engine
+    primary_engine = runtime_engine
+    if runtime_engine is not None:
+        info["ocr_engine_class"] = type(runtime_engine).__name__
+        wrapped = getattr(runtime_engine, "_primary", None)
+        if wrapped is not None:
+            primary_engine = wrapped
+            info["ocr_primary_class"] = type(wrapped).__name__
+            crop_engine = getattr(runtime_engine, "_tess", None)
+            if crop_engine is not None:
+                info["ocr_crop_class"] = type(crop_engine).__name__
+                info["ocr_crop_backend"] = str(getattr(crop_engine, "runtime_backend", ""))
+
+    if primary_engine is not None:
+        info["ocr_primary_backend"] = str(getattr(primary_engine, "runtime_backend", ""))
+        runtime_device = getattr(primary_engine, "runtime_device", None)
+        if runtime_device is not None:
+            info["ocr_primary_device"] = str(runtime_device)
+        ocr_version = getattr(primary_engine, "_ocr_version", None)
+        if ocr_version:
+            info["ocr_primary_version"] = str(ocr_version)
+        providers = getattr(primary_engine, "_providers", None)
+        if providers:
+            info["onnx_providers"] = list(providers)
+        det_model = getattr(primary_engine, "_det_model_path", None)
+        if det_model is not None:
+            info["onnx_det_model"] = str(det_model)
+        rec_model = getattr(primary_engine, "_rec_model_path", None)
+        if rec_model is not None:
+            info["onnx_rec_model"] = str(rec_model)
+
+    if glm_engine is not None:
+        info["glm_engine_class"] = type(glm_engine).__name__
+        info["glm_runtime_profile"] = str(getattr(glm_engine, "runtime_profile", ""))
+        info["glm_runtime_backend"] = str(getattr(glm_engine, "runtime_backend", ""))
+        service_url = getattr(glm_engine, "service_url", None)
+        if service_url:
+            info["glm_service_url"] = str(service_url)
+        service_model_name = getattr(glm_engine, "service_model_name", None)
+        if service_model_name:
+            info["glm_service_model_name"] = str(service_model_name)
+
+    try:
+        import paddle  # type: ignore
+
+        info["paddle_version"] = getattr(paddle, "__version__", "unknown")
+        info["paddle_cuda_compiled"] = bool(paddle.device.is_compiled_with_cuda())
+        try:
+            info["paddle_device"] = paddle.device.get_device()
+        except Exception as exc:
+            info["paddle_device_error"] = repr(exc)
+    except Exception as exc:
+        info["paddle_import_error"] = repr(exc)
+
+    return info
 
 
 def create_ocr_engine(config: OCRConfig) -> "OCREngine | HybridOCREngine":

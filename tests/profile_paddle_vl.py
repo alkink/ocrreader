@@ -13,7 +13,7 @@ if str(PROJECT_ROOT) not in sys.path:
 import cv2
 
 from ocrreader.config import OCRConfig
-from ocrreader.ocr_engine import create_glm_fallback_engine
+from ocrreader.ocr_engine import collect_runtime_metadata, create_glm_fallback_engine
 
 
 def main() -> int:
@@ -118,6 +118,7 @@ def main() -> int:
         "use_queues": use_queues,
         "prompt_label": args.prompt_label,
         "output": args.output,
+        "runtime": collect_runtime_metadata(config, None, engine),
     }
     Path(args.summary).write_text(json.dumps(summary, ensure_ascii=False, indent=2), encoding="utf-8")
     print(json.dumps(summary, ensure_ascii=False, indent=2))

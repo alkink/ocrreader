@@ -11,7 +11,7 @@ from .field_postprocess import postprocess_fields
 from .config import AnchorConfig, RuhsatConfig
 from .fields import apply_secondary_ocr_fallback, extract_fields, resolve_field_rois
 from .io_utils import imread_color, imwrite
-from .ocr_engine import OCRWord, create_glm_fallback_engine, create_ocr_engine
+from .ocr_engine import OCRWord, collect_runtime_metadata, create_glm_fallback_engine, create_ocr_engine
 from .page_word_extractor import extract_field_from_page
 from .preprocess import preprocess_document
 from .template_anchor_detector import TemplateAnchorDetector, detect_anchors_hybrid
@@ -371,6 +371,7 @@ class RuhsatOcrPipeline:
                 for name, match in anchors.items()
             },
             "fields": fields,
+            "runtime": collect_runtime_metadata(self.config.ocr, self.engine, self.glm_engine),
         }
 
         if self.glm_engine_error:
