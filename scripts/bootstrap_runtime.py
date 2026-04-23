@@ -11,6 +11,8 @@ from typing import Iterable
 
 REPO_ROOT = Path(__file__).resolve().parents[1]
 MLX_VENV_DIR = REPO_ROOT / ".venv-mlx"
+MIN_SUPPORTED_PYTHON = (3, 10)
+MAX_VALIDATED_PYTHON = (3, 12)
 
 
 def run_capture(args: list[str]) -> str:
@@ -65,6 +67,7 @@ def iter_python_candidates() -> Iterable[str]:
     seen: set[str] = set()
     candidates = [
         sys.executable,
+        shutil.which("py"),
         shutil.which("python3.12"),
         shutil.which("python3.11"),
         shutil.which("python3.10"),
@@ -85,6 +88,26 @@ def iter_python_candidates() -> Iterable[str]:
 
 
 def python_version_of(executable: str) -> tuple[int, int, int] | None:
+    if Path(executable).name.lower() in {"py", "py.exe"}:
+        for version in ("3.11", "3.12", "3.10"):
+            raw = run_capture(
+                [
+                    executable,
+                    f"-{version}",
+                    "-c",
+                    "import sys; print(f'{sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}|{sys.executable}')",
+                ]
+            ).splitlines()
+            if not raw:
+                continue
+            try:
+                version_text, resolved = raw[-1].strip().split("|", 1)
+                parts = tuple(int(x) for x in version_text.split("."))
+            except Exception:
+                continue
+            if len(parts) == 3 and resolved:
+                return parts  # type: ignore[return-value]
+        return None
     raw = run_capture(
         [
             executable,
@@ -103,11 +126,34 @@ def python_version_of(executable: str) -> tuple[int, int, int] | None:
     return parts  # type: ignore[return-value]
 
 
-def find_python_at_least(minimum: tuple[int, int] = (3, 10)) -> str | None:
+def python_in_validated_range(version: tuple[int, int, int] | None) -> bool:
+    return bool(version and MIN_SUPPORTED_PYTHON <= version[:2] <= MAX_VALIDATED_PYTHON)
+
+
+def resolve_python_executable(executable: str) -> str | None:
+    if Path(executable).name.lower() not in {"py", "py.exe"}:
+        return executable
+    for version in ("3.11", "3.12", "3.10"):
+        raw = run_capture(
+            [
+                executable,
+                f"-{version}",
+                "-c",
+                "import sys; print(sys.executable)",
+            ]
+        ).splitlines()
+        if raw and raw[-1].strip():
+            return raw[-1].strip()
+    return None
+
+
+def find_python_in_validated_range() -> str | None:
     for executable in iter_python_candidates():
         version = python_version_of(executable)
-        if version and version[:2] >= minimum:
-            return executable
+        if python_in_validated_range(version):
+            resolved = resolve_python_executable(executable)
+            if resolved:
+                return resolved
     return None
 
 
@@ -118,7 +164,7 @@ def venv_python_path(venv_dir: Path) -> Path:
 
 
 def ensure_mlx_server_environment(*, dry_run: bool = False) -> tuple[Path | None, str | None]:
-    python_executable = find_python_at_least((3, 10))
+    python_executable = find_python_in_validated_range()
     if not python_executable:
         return None, None
 
@@ -162,7 +208,7 @@ def build_plan(include_glmocr: bool = False) -> dict[str, object]:
         classic_auto = "onnxruntime (if CoreMLExecutionProvider is available) else paddleocr"
         vl_auto = "local_mlx_vlm_service"
         notes.append("macOS PaddlePaddle path is CPU-oriented. ONNX Runtime may improve classic OCR, but CoreML provider availability depends on the wheel/build on that Mac.")
-        mlx_python = find_python_at_least((3, 10))
+        mlx_python = find_python_in_validated_range()
         if mlx_python:
             vl_runtime_setup = {
                 "kind": "mlx_server_env",
@@ -172,7 +218,7 @@ def build_plan(include_glmocr: bool = False) -> dict[str, object]:
             }
             notes.append(f"PaddleOCR-VL auto mode will use a separate MLX server environment at {MLX_VENV_DIR.name}.")
         else:
-            manual_steps.append("Install Python 3.10+ to auto-bootstrap the local MLX-VLM server environment for PaddleOCR-VL on macOS.")
+            manual_steps.append("Install Python 3.10, 3.11, or 3.12 to auto-bootstrap the local MLX-VLM server environment for PaddleOCR-VL on macOS.")
             manual_steps.append("If you want PaddleOCR-VL auto mode on macOS, start a local MLX-VLM compatible server first.")
     elif system_name == "windows":
         if has_nvidia:
@@ -204,15 +250,19 @@ def build_plan(include_glmocr: bool = False) -> dict[str, object]:
     if not command_exists("tesseract"):
         manual_steps.append("Install Tesseract separately if you will use crop OCR or classic configs that rely on it.")
 
+    current_python = sys.version_info[:3]
+
     if include_glmocr:
-        if sys.version_info >= (3, 10):
+        if python_in_validated_range(current_python):
             requirement_files.append(REPO_ROOT / "requirements.glmocr.txt")
             notes.append("Optional GLM-OCR fallback will be installed from vendored source.")
         else:
-            manual_steps.append("GLM-OCR optional install was skipped because it requires Python 3.10+. Use Python 3.10/3.11/3.12 if you need that fallback.")
+            manual_steps.append("GLM-OCR optional install was skipped because it requires a validated Python. Use Python 3.10, 3.11, or 3.12 if you need that fallback.")
 
-    if sys.version_info < (3, 10):
-        notes.append("This interpreter is older than Python 3.10. Base OCR may still install, but optional GLM-OCR fallback is unavailable on this interpreter.")
+    if current_python[:2] < MIN_SUPPORTED_PYTHON:
+        notes.append("This interpreter is older than Python 3.10. Use Python 3.11 for a supported install.")
+    elif current_python[:2] > MAX_VALIDATED_PYTHON:
+        notes.append("This interpreter is newer than the validated range. Use Python 3.11 for the most reliable install.")
 
     return {
         "system": system_name,
@@ -286,6 +336,16 @@ def main() -> int:
 
     if args.dry_run:
         return 0
+
+    if not python_in_validated_range(sys.version_info[:3]):
+        print("Unsupported bootstrap interpreter for this repo.")
+        print(f"- current python: {sys.version_info.major}.{sys.version_info.minor}.{sys.version_info.micro}")
+        print("- expected range: 3.10 to 3.12")
+        if platform.system().strip().lower() == "windows":
+            print(r"- run instead: powershell -ExecutionPolicy Bypass -File .\scripts\bootstrap_windows.ps1")
+        else:
+            print("- create a Python 3.11 virtual environment first, then rerun this script.")
+        return 2
 
     install_requirements(requirement_files)
     if vl_runtime_setup and not args.skip_vl_runtime and vl_runtime_setup.get("kind") == "mlx_server_env":

@@ -1,6 +1,10 @@
 pipeline:
   output_width: 1600
   output_height: 1000
+  page_regex_fallback_enabled: true
+  adaptive_denoise_fast_path: true
+  adaptive_denoise_skip_std_threshold: 50
+  adaptive_denoise_search_window_size: 15
   document_detector:
     min_area_ratio: 0.2
     canny_threshold1: 60
@@ -24,8 +28,17 @@ ocr:
   glm_fallback_enabled: true
   glm_fallback_fields:
   - type
+  - vehicle_type
+  - chassis_no
+  - engine_no
+  - owner_address
+  - province_district
   - owner_surname
+  - owner_title
   - owner_name
+  glm_force_fields:
+  - type
+  - vehicle_type
   glm_fallback_min_confidence: 10
   glm_api_key: null
   glm_api_url: null
@@ -232,7 +245,11 @@ fields:
     - 0.03
     - 0.22
     - 0.058
-    fallback_norm: null
+    fallback_norm:
+    - 0.11
+    - 0.60
+    - 0.20
+    - 0.055
     value_from_anchor: below
     value_margin_norm:
     - 0.01
@@ -251,10 +268,10 @@ fields:
     - 0.22
     - 0.058
     fallback_norm:
-    - 0.08
-    - 0.44
-    - 0.3
-    - 0.065
+    - 0.15
+    - 0.53
+    - 0.15
+    - 0.055
     value_from_anchor: below
     value_margin_norm:
     - 0.01
@@ -328,31 +345,31 @@ fields:
     anchor: type_label
     offset_from_anchor_norm:
     - 0.0
-    - 0.03
-    - 0.12
-    - 0.07
+    - 0.02
+    - 0.22
+    - 0.09
     fallback_norm:
-    - 0.32
     - 0.34
-    - 0.12
+    - 0.35
+    - 0.18
     - 0.08
     value_from_anchor: right
     value_margin_norm:
-    - 0.006
+    - 0.01
     - 0.002
-    - 0.12
-    - 0.04
-    prefer_anchor: true
-    force_method: anchor_right_line
-    cleanup: vehicle_type
+    - 0.2
+    - 0.06
+    prefer_anchor: false
+    force_method: page_label_inline
+    cleanup: text_upper
     min_len: 2
     prefer_mixed_alnum: true
     strip_prefixes:
     - TIPI
     - TIP
     - TYPE
-    psm: 7
-    confidence_threshold: 8
+    psm: 6
+    confidence_threshold: 4
   model_year:
     anchor: model_year_label
     offset_from_anchor_norm:
@@ -375,6 +392,16 @@ fields:
     cleanup: digits
     psm: 7
     confidence_threshold: 4
+  owner_title:
+    fallback_norm:
+    - 0.64
+    - 0.22
+    - 0.08
+    - 0.05
+    cleanup: owner_text
+    min_len: 2
+    psm: 7
+    confidence_threshold: 2
   owner_surname:
     anchor: surname_label
     offset_from_anchor_norm:
@@ -412,9 +439,9 @@ fields:
     - 0.06
     fallback_norm:
     - 0.64
-    - 0.19
-    - 0.18
-    - 0.06
+    - 0.25
+    - 0.17
+    - 0.055
     value_from_anchor: right
     value_margin_norm:
     - 0.002
@@ -531,3 +558,175 @@ fields:
     - 'NO'
     - 'NO:'
     psm: 7
+  province_district:
+    fallback_norm:
+    - 0.04
+    - 0.125
+    - 0.40
+    - 0.05
+    cleanup: text_upper
+    min_len: 6
+    psm: 6
+    confidence_threshold: 8
+  registration_serial_no:
+    fallback_norm:
+    - 0.07
+    - 0.25
+    - 0.24
+    - 0.05
+    cleanup: digits
+    min_len: 12
+    psm: 7
+    confidence_threshold: 16
+    whitelist: 0123456789
+  vehicle_class:
+    fallback_norm:
+    - 0.39
+    - 0.39
+    - 0.11
+    - 0.08
+    cleanup: alnum_upper
+    min_len: 2
+    psm: 7
+    confidence_threshold: 2
+  vehicle_type:
+    fallback_norm:
+    - 0.11
+    - 0.485
+    - 0.18
+    - 0.05
+    cleanup: keep
+    min_len: 4
+    psm: 6
+    confidence_threshold: 4
+  color:
+    fallback_norm:
+    - 0.37
+    - 0.485
+    - 0.11
+    - 0.05
+    cleanup: text_upper
+    min_len: 3
+    psm: 6
+    confidence_threshold: 4
+  owner_address:
+    fallback_norm:
+    - 0.53
+    - 0.35
+    - 0.38
+    - 0.07
+    cleanup: text_upper
+    min_len: 10
+    psm: 6
+    confidence_threshold: 8
+  net_weight_kg:
+    fallback_norm:
+    - 0.07
+    - 0.71
+    - 0.07
+    - 0.045
+    cleanup: digits
+    psm: 7
+    confidence_threshold: 2
+    whitelist: 0123456789
+  max_loaded_weight_kg:
+    fallback_norm:
+    - 0.44
+    - 0.71
+    - 0.07
+    - 0.045
+    cleanup: digits
+    psm: 7
+    confidence_threshold: 2
+    whitelist: 0123456789
+  trailer_weight_kg:
+    fallback_norm:
+    - 0.44
+    - 0.78
+    - 0.05
+    - 0.045
+    cleanup: digits
+    psm: 7
+    confidence_threshold: 0
+    whitelist: 0123456789-
+  seat_count:
+    fallback_norm:
+    - 0.07
+    - 0.84
+    - 0.04
+    - 0.045
+    cleanup: digits
+    psm: 7
+    confidence_threshold: 0
+    whitelist: 0123456789-
+  standing_passenger_count:
+    fallback_norm:
+    - 0.45
+    - 0.84
+    - 0.05
+    - 0.045
+    cleanup: digits
+    psm: 7
+    confidence_threshold: 0
+    whitelist: 0123456789-
+  cylinder_volume_cm3:
+    fallback_norm:
+    - 0.07
+    - 0.91
+    - 0.07
+    - 0.045
+    cleanup: digits
+    psm: 7
+    confidence_threshold: 2
+    whitelist: 0123456789
+  engine_power_kw:
+    fallback_norm:
+    - 0.45
+    - 0.91
+    - 0.04
+    - 0.045
+    cleanup: digits
+    psm: 7
+    confidence_threshold: 2
+    whitelist: 0123456789
+  fuel_type:
+    fallback_norm:
+    - 0.07
+    - 0.93
+    - 0.10
+    - 0.04
+    cleanup: text_upper
+    min_len: 3
+    psm: 7
+    confidence_threshold: 4
+  usage_purpose:
+    fallback_norm:
+    - 0.04
+    - 0.965
+    - 0.29
+    - 0.035
+    cleanup: text_upper
+    min_len: 10
+    psm: 6
+    confidence_threshold: 8
+  approval_type_no:
+    fallback_norm:
+    - 0.28
+    - 0.965
+    - 0.19
+    - 0.035
+    force_method: page_label_follow_line
+    cleanup: keep
+    min_len: 10
+    psm: 6
+    confidence_threshold: 4
+  approver_registration_no:
+    fallback_norm:
+    - 0.68
+    - 0.93
+    - 0.07
+    - 0.05
+    cleanup: digits
+    psm: 7
+    confidence_threshold: 0
+    whitelist: 0123456789

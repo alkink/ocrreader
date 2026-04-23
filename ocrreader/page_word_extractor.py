@@ -321,6 +321,7 @@ def _extract_engine(words: list[object], doc_w: int, doc_h: int) -> list[PageCan
     region = _region_rect("engine_no", doc_w, doc_h)
     labels = _label_positions(words, ("MOTOR", "MOTOR NO", "MOTORNO"))
     out: list[PageCandidate] = []
+    bad_fragments = ("TICAR", "ADI", "TESCIL", "MARKA", "MODEL", "SASE", "PANEL", "ROMORK")
 
     for w in words:
         box = _bbox(w)
@@ -331,6 +332,8 @@ def _extract_engine(words: list[object], doc_w: int, doc_h: int) -> list[PageCan
         if len(token) < 6 or len(token) > 20:
             continue
         if token.isdigit() or token in _NOISE_WORDS:
+            continue
+        if any(fragment in token for fragment in bad_fragments):
             continue
         if not (re.search(r"[A-Z]", token) and re.search(r"\d", token)):
             continue

@@ -26,6 +26,9 @@ class PipelineConfig:
     output_height: int = 1400
     orientation_osd_enabled: bool = False
     page_regex_fallback_enabled: bool = False
+    adaptive_denoise_fast_path: bool = False
+    adaptive_denoise_skip_std_threshold: float = 50.0
+    adaptive_denoise_search_window_size: int = 15
     document_detector: DocumentDetectorConfig = DocumentDetectorConfig()
     deskew: DeskewConfig = DeskewConfig()
 
@@ -58,6 +61,8 @@ class OCRConfig:
     paddle_crop_engine: str | None = None
     paddle_vl_use_layout_detection: bool = True
     paddle_vl_use_ocr_for_image_block: bool = True
+    paddle_vl_enable_right_page_pass: bool = False
+    paddle_vl_enable_d_block_pass: bool = False
     paddle_vl_runtime_profile: str = "auto"
     paddle_vl_service_url: str | None = None
     paddle_vl_service_model_name: str | None = None
@@ -72,6 +77,7 @@ class OCRConfig:
     paddle_vl_prompt_label: str | None = None
     glm_fallback_enabled: bool = False
     glm_fallback_fields: tuple[str, ...] = ()
+    glm_force_fields: tuple[str, ...] = ()
     glm_fallback_min_confidence: int = 10
     glm_api_key: str | None = None
     glm_api_url: str | None = None
@@ -110,6 +116,7 @@ class FieldConfig:
     confidence_threshold: int = 0
     psm: int | None = None
     whitelist: str | None = None
+    crop_ocr_variants: tuple[str, ...] = ()
 
 
 def _str_tuple(value: object, name: str) -> tuple[str, ...]:
@@ -168,6 +175,9 @@ def load_config(path: str) -> RuhsatConfig:
         output_height=int(pipeline_raw.get("output_height", 1400)),
         orientation_osd_enabled=bool(pipeline_raw.get("orientation_osd_enabled", False)),
         page_regex_fallback_enabled=bool(pipeline_raw.get("page_regex_fallback_enabled", False)),
+        adaptive_denoise_fast_path=bool(pipeline_raw.get("adaptive_denoise_fast_path", False)),
+        adaptive_denoise_skip_std_threshold=float(pipeline_raw.get("adaptive_denoise_skip_std_threshold", 50.0)),
+        adaptive_denoise_search_window_size=int(pipeline_raw.get("adaptive_denoise_search_window_size", 15)),
         document_detector=DocumentDetectorConfig(
             min_area_ratio=float(detector_raw.get("min_area_ratio", 0.2)),
             canny_threshold1=int(detector_raw.get("canny_threshold1", 60)),
@@ -236,6 +246,8 @@ def load_config(path: str) -> RuhsatConfig:
         ),
         paddle_vl_use_layout_detection=bool(ocr_raw.get("paddle_vl_use_layout_detection", True)),
         paddle_vl_use_ocr_for_image_block=bool(ocr_raw.get("paddle_vl_use_ocr_for_image_block", True)),
+        paddle_vl_enable_right_page_pass=bool(ocr_raw.get("paddle_vl_enable_right_page_pass", False)),
+        paddle_vl_enable_d_block_pass=bool(ocr_raw.get("paddle_vl_enable_d_block_pass", False)),
         paddle_vl_runtime_profile=str(ocr_raw.get("paddle_vl_runtime_profile", "auto")).strip().lower(),
         paddle_vl_service_url=(str(ocr_raw.get("paddle_vl_service_url")).strip() if ocr_raw.get("paddle_vl_service_url") is not None else None),
         paddle_vl_service_model_name=(str(ocr_raw.get("paddle_vl_service_model_name")).strip() if ocr_raw.get("paddle_vl_service_model_name") is not None else None),
@@ -251,6 +263,7 @@ def load_config(path: str) -> RuhsatConfig:
         paddle_version=ocr_raw.get("paddle_version"),
         glm_fallback_enabled=bool(ocr_raw.get("glm_fallback_enabled", False)),
         glm_fallback_fields=_str_tuple(ocr_raw.get("glm_fallback_fields"), "ocr.glm_fallback_fields"),
+        glm_force_fields=_str_tuple(ocr_raw.get("glm_force_fields"), "ocr.glm_force_fields"),
         glm_fallback_min_confidence=int(ocr_raw.get("glm_fallback_min_confidence", 10) or 10),
         glm_api_key=(str(ocr_raw.get("glm_api_key")).strip() if ocr_raw.get("glm_api_key") is not None else None),
         glm_api_url=(str(ocr_raw.get("glm_api_url")).strip() if ocr_raw.get("glm_api_url") is not None else None),
@@ -295,6 +308,7 @@ def load_config(path: str) -> RuhsatConfig:
             confidence_threshold=int(item.get("confidence_threshold", 0)),
             psm=int(item["psm"]) if item.get("psm") is not None else None,
             whitelist=item.get("whitelist"),
+            crop_ocr_variants=_str_tuple(item.get("crop_ocr_variants"), f"fields.{name}.crop_ocr_variants"),
         )
 
     return RuhsatConfig(

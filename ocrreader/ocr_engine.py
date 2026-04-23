@@ -1220,6 +1220,7 @@ class GlmFallbackEngine:
 
 
 class PaddleOCRVLEngine:
+    _NATIVE_MODEL_NAME = "PaddleOCR-VL-1.5-0.9B"
     """Experimental fallback engine using PaddleOCR-VL (Vision-Language) model.
 
     Requires: pip install "paddleocr[doc-parser]" transformers
@@ -1299,6 +1300,7 @@ class PaddleOCRVLEngine:
         self.runtime_backend = str(backend_name or "paddle")
         self.service_url = str(init_kwargs.get("vl_rec_server_url") or "")
         self.service_model_name = str(init_kwargs.get("vl_rec_api_model_name") or "")
+        self.model_name = str(self.service_model_name or self._NATIVE_MODEL_NAME)
         self._vl = PaddleOCRVL(**init_kwargs)
 
     @classmethod
@@ -1581,15 +1583,36 @@ class PaddleOCRVLEngine:
         psm: int | None = None,
         whitelist: str | None = None,
         prompt: str | None = None,
+        *,
+        use_layout_detection: bool | None = None,
+        max_new_tokens: int | None = None,
     ) -> str:
+        """Run PaddleOCR-VL inference on *image*.
+
+        Per-call overrides
+        ------------------
+        use_layout_detection : bool | None
+            Override ``paddle_vl_use_layout_detection`` for this call only.
+            Set to ``False`` for regional crops (right-page, D-block) to skip
+            the layout-analysis stage and save ~15-20 s per inference.
+        max_new_tokens : int | None
+            Override ``paddle_vl_max_new_tokens`` for this call only.
+            Regional crops can use 256; full-page pass can use 384-512.
+        """
         _ = psm
         _ = whitelist
         rgb = self._prepare_vl_image(image)
         try:
             # For PaddleOCR-VL-1.5, prompt_label can be used for VLM tasks.
             # If prompt is None, it uses the default OCR behavior.
+            # Resolve layout-detection flag: per-call override wins; else config.
+            _use_layout = (
+                use_layout_detection
+                if use_layout_detection is not None
+                else bool(getattr(self.config, "paddle_vl_use_layout_detection", True))
+            )
             vl_kwargs: dict[str, object] = {
-                "use_layout_detection": bool(getattr(self.config, "paddle_vl_use_layout_detection", True)),
+                "use_layout_detection": _use_layout,
                 "use_ocr_for_image_block": bool(getattr(self.config, "paddle_vl_use_ocr_for_image_block", True)),
                 "use_queues": bool(getattr(self.config, "paddle_vl_use_queues", True)),
                 "use_cache": bool(getattr(self.config, "paddle_vl_use_cache", True)),
@@ -1597,9 +1620,14 @@ class PaddleOCRVLEngine:
             prompt_label = prompt or getattr(self.config, "paddle_vl_prompt_label", None)
             if prompt_label:
                 vl_kwargs["prompt_label"] = prompt_label
-            max_new_tokens = getattr(self.config, "paddle_vl_max_new_tokens", None)
-            if max_new_tokens is not None:
-                vl_kwargs["max_new_tokens"] = max(1, int(max_new_tokens))
+            # max_new_tokens: per-call override wins; else config.
+            _max_new_tokens = (
+                max_new_tokens
+                if max_new_tokens is not None
+                else getattr(self.config, "paddle_vl_max_new_tokens", None)
+            )
+            if _max_new_tokens is not None:
+                vl_kwargs["max_new_tokens"] = max(1, int(_max_new_tokens))
             min_pixels = getattr(self.config, "paddle_vl_min_pixels", None)
             if min_pixels is not None:
                 vl_kwargs["min_pixels"] = max(1, int(min_pixels))
@@ -1748,6 +1776,9 @@ def collect_runtime_metadata(
         info["glm_engine_class"] = type(glm_engine).__name__
         info["glm_runtime_profile"] = str(getattr(glm_engine, "runtime_profile", ""))
         info["glm_runtime_backend"] = str(getattr(glm_engine, "runtime_backend", ""))
+        model_name = getattr(glm_engine, "model_name", None)
+        if model_name:
+            info["glm_model_name"] = str(model_name)
         service_url = getattr(glm_engine, "service_url", None)
         if service_url:
             info["glm_service_url"] = str(service_url)

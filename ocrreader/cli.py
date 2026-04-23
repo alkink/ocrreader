@@ -56,6 +56,7 @@ def main(argv: list[str] | None = None) -> int:
             "fields": _fields_only_result(result),
             "runtime": result.get("runtime", {}),
             "pipeline": result.get("pipeline", {}),
+            "review": result.get("review", {}),
         }
     else:
         payload = _fields_only_result(result)

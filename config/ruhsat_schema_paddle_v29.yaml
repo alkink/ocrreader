@@ -1,6 +1,7 @@
 pipeline:
   output_width: 1600
   output_height: 1000
+  page_regex_fallback_enabled: false
   document_detector:
     min_area_ratio: 0.2
     canny_threshold1: 60

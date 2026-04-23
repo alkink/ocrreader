@@ -172,7 +172,7 @@ def _rotate_bound(image: np.ndarray, angle_deg: float) -> np.ndarray:
     )
 
 
-def _enhance_low_contrast(image: np.ndarray) -> np.ndarray:
+def _enhance_low_contrast(image: np.ndarray, config: PipelineConfig | None = None) -> np.ndarray:
     """CLAHE + light denoise to stabilize low-contrast gray scans."""
     lab = cv2.cvtColor(image, cv2.COLOR_BGR2LAB)
     l, a, b = cv2.split(lab)
@@ -180,6 +180,13 @@ def _enhance_low_contrast(image: np.ndarray) -> np.ndarray:
     l2 = clahe.apply(l)
     merged = cv2.merge((l2, a, b))
     out = cv2.cvtColor(merged, cv2.COLOR_LAB2BGR)
+    if config is not None and bool(getattr(config, "adaptive_denoise_fast_path", False)):
+        std_l = float(np.std(l))
+        if std_l >= float(getattr(config, "adaptive_denoise_skip_std_threshold", 50.0)):
+            return out
+        search_window_size = max(7, int(getattr(config, "adaptive_denoise_search_window_size", 15) or 15))
+        out = cv2.fastNlMeansDenoisingColored(out, None, 3, 3, 7, search_window_size)
+        return out
     out = cv2.fastNlMeansDenoisingColored(out, None, 3, 3, 7, 21)
     return out
 
@@ -247,7 +254,7 @@ def _correct_orientation_safe(image: np.ndarray) -> np.ndarray:
 
 def preprocess_document(image: np.ndarray, config: PipelineConfig) -> PreprocessResult:
     oriented = _choose_best_orientation(image)
-    enhanced = _enhance_low_contrast(oriented)
+    enhanced = _enhance_low_contrast(oriented, config)
 
     quad = detect_document_quad(enhanced, config)
     normalized = _warp_perspective(enhanced, quad, config.output_width, config.output_height)
